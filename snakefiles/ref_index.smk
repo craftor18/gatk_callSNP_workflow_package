@@ -11,11 +11,13 @@ rule ref_index:
         index2=f"{reference_file}.amb",
         index3=f"{reference_file}.ann",
         index4=f"{reference_file}.bwt.2bit.64",
-        index5=f"{reference_file}.pac"
+        index5=f"{reference_file}.pac",
+        dict=f"{reference_file}.dict".strip('.fasta')
     threads: 4
     shell:
         """
         /home/software/bwa-mem2-2.2.1_x64-linux/bwa-mem2 index {input.ref} 
+        gatk CreateSequenceDictionary -R {input.ref} -O {output.dict}
         """
 rule all_ref_index:
     input:
@@ -23,4 +25,5 @@ rule all_ref_index:
         expand(f"{reference_file}.amb"),
         expand(f"{reference_file}.ann"),
         expand(f"{reference_file}.bwt.2bit.64"),
-        expand(f"{reference_file}.pac")
+        expand(f"{reference_file}.pac"),
+        expand(f"{reference_file}.dict".strip('.fasta'))
