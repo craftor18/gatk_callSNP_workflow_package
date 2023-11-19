@@ -1,6 +1,8 @@
 import argparse
 import os
 import subprocess
+
+# Define a dictionary that maps each workflow step to its corresponding Snakemake file
 step_to_snakemake_file = {
     "step0_ref_index": "./snakefiles/ref_index.smk",
     "step1_bwa_map": "./snakefiles/bwa_map.smk",
@@ -11,7 +13,9 @@ step_to_snakemake_file = {
     "step6_combine_gvcfs":"./snakefiles/combine_gvcfs.smk",
     "step7_genotype_gvcfs":"./snakefiles/genotype_gvcfs.smk"
 }
-def run_snakemake(step,snakemake_file, config_file, work_dir):
+
+# Define a function that runs Snakemake with customizable parameters
+def run_snakemake(step, snakemake_file, config_file, work_dir):
     # command = f"snakemake --snakefile {snakemake_file} --configfile {config_file} --directory {work_dir} -np  --latency-wait 60  --cores 10  --dag all_{step} | dot -Tpdf > dag.pdf"
     command = f"nohup snakemake --snakefile {snakemake_file} --configfile {config_file} --directory {work_dir} --latency-wait 60  --cores 10 all_{step} > {work_dir}/{step}.log &"
     try:

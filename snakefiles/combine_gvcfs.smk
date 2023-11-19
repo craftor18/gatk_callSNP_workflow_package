@@ -11,14 +11,14 @@ for file in os.listdir(samples_dir):
         samples.append(sample)
 
 def get_gvcf_list(wildcards):
-    return " ".join([f"-V {output_dir}/gvcf/{sample}.g.vcf" for sample in samples])
+    return " ".join([f"-V {output_dir}/gvcf/{sample}.g.vcf.gz" for sample in samples])
 
 rule combine_gvcfs:
     input:
-        gvcfs=expand(f"{output_dir}/gvcf/{{sample}}.g.vcf", sample=samples),
+        gvcfs=expand(f"{output_dir}/gvcf/{{sample}}.g.vcf.gz", sample=samples),
         ref=f"{reference_file}"
     output:
-        combined_gvcf=f"{output_dir}/combined.g.vcf"
+        combined_gvcf=f"{output_dir}/combined.g.vcf.gz"
     threads: 8
     log:
         "logs/combine_gvcfs.log"
@@ -31,4 +31,4 @@ rule combine_gvcfs:
 
 rule all_combine_gvcfs:
     input:
-        f"{output_dir}/combined.g.vcf"
+        f"{output_dir}/combined.g.vcf.gz"
