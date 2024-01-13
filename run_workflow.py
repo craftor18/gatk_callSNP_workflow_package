@@ -4,14 +4,17 @@ import subprocess
 
 # Define a dictionary that maps each workflow step to its corresponding Snakemake file
 step_to_snakemake_file = {
-    "step0_ref_index": "./snakefiles/ref_index.smk",
-    "step1_bwa_map": "./snakefiles/bwa_map.smk",
-    "step2_sort_sam": "./snakefiles/sort_sam.smk",
-    "step3_mark_duplicates": "./snakefiles/mark_duplicates.smk",
-    "step4_index_bam":"./snakefiles/index_bam.smk",
-    "step5_haplotype_caller":"./snakefiles/haplotype_caller.smk",
-    "step6_combine_gvcfs":"./snakefiles/combine_gvcfs.smk",
-    "step7_genotype_gvcfs":"./snakefiles/genotype_gvcfs.smk"
+    "step0_ref_index": "./snakefiles/00_ref_index.smk",
+    "step1_bwa_map": "./snakefiles/01_bwa_map.smk",
+    "step2_sort_sam": "./snakefiles/02_sort_sam.smk",
+    "step3_mark_duplicates": "./snakefiles/03_mark_duplicates.smk",
+    "step4_index_bam":"./snakefiles/04_index_bam.smk",
+    "step5_haplotype_caller":"./snakefiles/05_haplotype_caller.smk",
+    "step6_combine_gvcfs":"./snakefiles/06_combine_gvcfs.smk",
+    "step7_genotype_gvcfs":"./snakefiles/07_genotype_gvcfs.smk",
+    "step8_vcf_filter":"./snakefiles/08_vcf_filter.smk",
+    "step9_select_snp":"./snakefiles/09_select_snp.smk",
+    "step10_get_GWAS_data":"./snakefiles/10_get_GWAS_data.smk"
 }
 
 # Define a function that runs Snakemake with customizable parameters

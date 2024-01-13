@@ -1,5 +1,5 @@
 #configfile: "config.yaml"
-
+import os
 samples_dir = config["samples_dir"]
 output_dir = config["output_dir"]
 reference_file = config["reference_genome"]

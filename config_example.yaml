@@ -1,3 +1,5 @@
 samples_dir: /data/liudong/zengy/reseq_red_var/02_merge_batch_samples_clean_datas/file_list
 output_dir: /data/liudong/zengy/reseq_red_var/03_Call_SNP/01_output_files
 reference_genome: /data/liudong/zengy/reseq_red_var/ref_genome/Carassius_auratus_red_var_V3/C.auratus.chromosome_20210819.fasta
+sample_list: /data/liudong/zengy/reseq_red_var/03_Call_SNP/sample_list
+phenotype_file: /data/liudong/zengy/reseq_red_var/03_Call_SNP/pheno.txt
