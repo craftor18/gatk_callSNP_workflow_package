@@ -16,7 +16,7 @@ rule ref_index:
     threads: 4
     shell:
         """
-        /home/software/bwa-mem2-2.2.1_x64-linux/bwa-mem2 index {input.ref} 
+        bwa-mem2 index {input.ref} 
         gatk CreateSequenceDictionary -R {input.ref} -O {output.dict}
         """
 rule all_ref_index:
