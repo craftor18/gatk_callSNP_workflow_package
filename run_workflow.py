@@ -20,7 +20,11 @@ step_to_snakemake_file = {
 
 # Define a function that runs Snakemake with customizable parameters
 def run_snakemake(step, snakemake_file, config_file, work_dir):
+<<<<<<< HEAD
     command = f"nohup snakemake --snakefile {snakemake_file} --configfile {config_file} --directory {work_dir} --latency-wait 60 --cores 20 all_{step} > {work_dir}/{step}.log &"
+=======
+    command = f"nohup snakemake --snakefile {snakemake_file} --configfile {config_file} --directory {work_dir} --latency-wait 60 --cores 10 all_{step} > {work_dir}/{step}.log &"
+>>>>>>> afde2a005d398680fefe4c88d3400e596198abbd
     try:
         subprocess.run(command, shell=True, check=True)
         print(f"Successfully executed {snakemake_file}")
@@ -38,4 +42,7 @@ if __name__ == "__main__":
     seq = [args.step.split('_')[1], args.step.split('_')[2]]
     selected_step = '_'.join(seq)
     run_snakemake(selected_step, selected_snakemake_file, args.config_file, args.work_dir)
+<<<<<<< HEAD
 
+=======
+>>>>>>> afde2a005d398680fefe4c88d3400e596198abbd
