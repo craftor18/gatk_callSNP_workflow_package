@@ -16,8 +16,9 @@ rule ref_index:
     threads: 4
     shell:
         """
-        /home/software/bwa-mem2-2.2.1_x64-linux/bwa-mem2 index {input.ref} 
+        bwa-mem2 index {input.ref} 
         gatk CreateSequenceDictionary -R {input.ref} -O {output.dict}
+        samtools faidx {input.ref}
         """
 rule all_ref_index:
     input:
@@ -26,4 +27,5 @@ rule all_ref_index:
         expand(f"{reference_file}.ann"),
         expand(f"{reference_file}.bwt.2bit.64"),
         expand(f"{reference_file}.pac"),
-        expand(f"{reference_file}.dict".strip('.fasta'))
+        expand(f"{reference_file}.dict".strip('.fasta')),
+        expand(f"{reference_file}.fai")

@@ -20,7 +20,7 @@ rule select_snp:
         "logs/select_snp.log"
     shell:
         """
-        gatk SelectVariants -R {input.ref} -v {input.all_vcf} -selectType SNP -o {output.snp_vcf} > {log}
+        gatk SelectVariants -R {input.ref} -V {input.all_vcf}  -select-type  SNP -O {output.snp_vcf} > {log}
         """
 
 rule all_select_snp:
