@@ -11,85 +11,89 @@ import platform
 import subprocess
 from pathlib import Path
 
+def clean_build_dirs():
+    """清理构建目录"""
+    dirs_to_clean = ['build', 'dist', '__pycache__']
+    for dir_name in dirs_to_clean:
+        if os.path.exists(dir_name):
+            shutil.rmtree(dir_name)
+    # 清理.spec文件
+    for spec_file in Path('.').glob('*.spec'):
+        spec_file.unlink()
+
 def get_platform_info():
     """获取平台信息"""
     system = platform.system().lower()
     machine = platform.machine().lower()
     
-    # 规范化架构名称
+    # 标准化平台名称
+    if system == 'darwin':
+        system = 'darwin'  # macOS
+    elif system == 'linux':
+        system = 'linux'
+    elif system == 'windows':
+        system = 'windows'
+    else:
+        raise ValueError(f"不支持的操作系统: {system}")
+    
+    # 标准化架构名称
     if machine in ['x86_64', 'amd64']:
         machine = 'x64'
-    elif machine in ['i386', 'i686', 'x86']:
-        machine = 'x86'
-    elif machine in ['arm64', 'aarch64']:
+    elif machine in ['aarch64', 'arm64']:
         machine = 'arm64'
-    elif machine.startswith('arm'):
-        machine = 'arm'
-        
+    else:
+        raise ValueError(f"不支持的架构: {machine}")
+    
     return system, machine
 
-def clean_build_dirs():
-    """清理构建目录"""
-    print("清理构建目录...")
-    for dir_name in ['build', 'dist']:
-        if os.path.exists(dir_name):
-            shutil.rmtree(dir_name)
-
 def build_executable():
-    # 获取当前操作系统信息
-    system = platform.system().lower()
-    machine = platform.machine().lower()
+    """构建可执行程序"""
+    # 获取平台信息
+    system, machine = get_platform_info()
+    print(f"开始为 {system}-{machine} 构建可执行程序...")
     
-    # 设置输出文件名
+    # 清理旧的构建文件
+    clean_build_dirs()
+    
+    # 构建命令
+    exe_name = f"gatk-snp-pipeline-{system}-{machine}"
     if system == 'windows':
-        output_name = f'gatk-snp-pipeline-{system}-{machine}.exe'
-    else:
-        output_name = f'gatk-snp-pipeline-{system}-{machine}'
+        exe_name += '.exe'
     
-    # 确保dist目录存在
-    dist_dir = Path('dist')
-    dist_dir.mkdir(exist_ok=True)
-    
-    # 构建PyInstaller命令
     cmd = [
-        'pyinstaller',
-        '--onefile',
-        '--name', output_name,
-        '--add-data', 'config:config',
-        '--add-data', 'README.md:.',
-        'src/gatk_snp_pipeline/cli.py'
+        "pyinstaller",
+        "--clean",
+        "--onefile",
+        "--name", exe_name,
+        "--add-data", "README.md:.",
+        "--add-data", "DEPENDENCY_TROUBLESHOOTING.md:.",
+        "gatk_snp_pipeline/main.py"
     ]
     
-    # 执行PyInstaller命令
-    os.system(' '.join(cmd))
-    
-    # 设置可执行权限（Linux和macOS）
-    if system in ['linux', 'darwin']:
-        exe_path = dist_dir / output_name
-        os.chmod(exe_path, 0o755)
-    
-    print(f"构建完成: {output_name}")
+    # 执行构建
+    try:
+        subprocess.check_call(cmd)
+        print("\n构建完成！")
+        
+        # 显示构建结果
+        dist_dir = Path("dist")
+        if dist_dir.exists():
+            print("\n可执行程序位于：")
+            for file in dist_dir.glob("gatk-snp-pipeline-*"):
+                print(f"  {file}")
+                
+            # 显示文件大小
+            exe_path = dist_dir / exe_name
+            if exe_path.exists():
+                size_mb = exe_path.stat().st_size / (1024 * 1024)
+                print(f"\n文件大小: {size_mb:.1f} MB")
+    except subprocess.CalledProcessError as e:
+        print(f"\n构建失败: {e}")
+        sys.exit(1)
 
 def main():
     """主函数"""
-    # 确保在正确的目录中
-    script_dir = Path(__file__).parent.absolute()
-    os.chdir(script_dir)
-    
-    # 检查Python版本
-    if sys.version_info < (3, 6):
-        print("错误: 需要Python 3.6或更高版本")
-        sys.exit(1)
-    
-    # 确保PyInstaller已安装
-    try:
-        import PyInstaller
-    except ImportError:
-        print("正在安装PyInstaller...")
-        subprocess.check_call([sys.executable, "-m", "pip", "install", "pyinstaller"])
-    
-    # 构建可执行程序
     build_executable()
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     main() 

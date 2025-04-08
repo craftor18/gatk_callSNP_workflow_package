@@ -1,4 +1,4 @@
-name: Build Executables
+name: Build Multi-Platform Executables
 
 on:
   push:
@@ -13,19 +13,27 @@ permissions:
   packages: write
 
 jobs:
-  build-windows:
-    runs-on: windows-latest
+  build:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        python-version: '3.9'
+    runs-on: ${{ matrix.os }}
+    
     steps:
     - uses: actions/checkout@v3
+    
     - name: Set up Python
       uses: actions/setup-python@v4
       with:
-        python-version: '3.9'
+        python-version: ${{ matrix.python-version }}
+    
     - name: Install Conda
       uses: conda-incubator/setup-miniconda@v2
       with:
         auto-update-conda: true
-        python-version: "3.9"
+        python-version: ${{ matrix.python-version }}
+    
     - name: Install dependencies
       shell: bash
       run: |
@@ -34,114 +42,48 @@ jobs:
         python -m pip install --upgrade pip
         pip install -r requirements.txt
         pip install pyinstaller
+    
     - name: Create dist directory
       run: mkdir -p dist
-    - name: Build Windows executable
+    
+    - name: Build executable
       run: python build.py
-    - name: Check executable
-      run: |
-        if (!(Test-Path dist/gatk-snp-pipeline-windows-x64.exe)) {
-          Write-Error "Windows executable not found"
-          exit 1
-        }
-    - name: Upload artifact
-      uses: actions/upload-artifact@v3
-      with:
-        name: windows-exe
-        path: dist/gatk-snp-pipeline-windows-x64.exe
-
-  build-linux:
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v3
-    - name: Set up Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.9'
-    - name: Install Conda
-      uses: conda-incubator/setup-miniconda@v2
-      with:
-        auto-update-conda: true
-        python-version: "3.9"
-    - name: Install dependencies
+    
+    - name: Check and set permissions
       shell: bash
       run: |
-        conda install -c bioconda -c conda-forge mamba
-        mamba install -c bioconda -c conda-forge gatk4 bwa samtools picard vcftools bgzip tabix fastp qualimap multiqc
-        python -m pip install --upgrade pip
-        pip install -r requirements.txt
-        pip install pyinstaller
-    - name: Create dist directory
-      run: mkdir -p dist
-    - name: Build Linux executable
-      run: python build.py
-    - name: Check executable
-      run: |
-        if [ ! -f dist/gatk-snp-pipeline-linux-x64 ]; then
-          echo "Linux executable not found"
-          exit 1
+        if [ "${{ matrix.os }}" != "windows-latest" ]; then
+          chmod +x dist/gatk-snp-pipeline-*
         fi
-        chmod +x dist/gatk-snp-pipeline-linux-x64
+    
     - name: Upload artifact
       uses: actions/upload-artifact@v3
       with:
-        name: linux-exe
-        path: dist/gatk-snp-pipeline-linux-x64
-
-  build-macos:
-    runs-on: macos-latest
-    steps:
-    - uses: actions/checkout@v3
-    - name: Set up Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.9'
-    - name: Install Conda
-      uses: conda-incubator/setup-miniconda@v2
-      with:
-        auto-update-conda: true
-        python-version: "3.9"
-    - name: Install dependencies
-      shell: bash
-      run: |
-        conda install -c bioconda -c conda-forge mamba
-        mamba install -c bioconda -c conda-forge gatk4 bwa samtools picard vcftools bgzip tabix fastp qualimap multiqc
-        python -m pip install --upgrade pip
-        pip install -r requirements.txt
-        pip install pyinstaller
-    - name: Create dist directory
-      run: mkdir -p dist
-    - name: Build macOS executable
-      run: python build.py
-    - name: Check executable
-      run: |
-        if [ ! -f dist/gatk-snp-pipeline-darwin-x64 ]; then
-          echo "macOS executable not found"
-          exit 1
-        fi
-        chmod +x dist/gatk-snp-pipeline-darwin-x64
-    - name: Upload artifact
-      uses: actions/upload-artifact@v3
-      with:
-        name: macos-exe
-        path: dist/gatk-snp-pipeline-darwin-x64
+        name: ${{ matrix.os }}-exe
+        path: |
+          dist/gatk-snp-pipeline-*
+          dist/gatk-snp-pipeline-*.exe
+        if-no-files-found: error
 
   release:
-    needs: [build-windows, build-linux, build-macos]
+    needs: build
     if: startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-latest
     steps:
     - name: Download all artifacts
       uses: actions/download-artifact@v3
+      with:
+        path: artifacts
+    
     - name: Create Release
-      id: create_release
       uses: softprops/action-gh-release@v1
       with:
         files: |
-          windows-exe/gatk-snp-pipeline-windows-x64.exe
-          linux-exe/gatk-snp-pipeline-linux-x64
-          macos-exe/gatk-snp-pipeline-darwin-x64
+          artifacts/ubuntu-latest-exe/gatk-snp-pipeline-linux-x64
+          artifacts/windows-latest-exe/gatk-snp-pipeline-windows-x64.exe
+          artifacts/macos-latest-exe/gatk-snp-pipeline-darwin-x64
         draft: false
         prerelease: false
+        generate_release_notes: true
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} 
