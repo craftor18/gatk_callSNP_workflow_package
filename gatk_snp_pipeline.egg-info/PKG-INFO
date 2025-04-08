@@ -1,10 +1,10 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: gatk-snp-pipeline
 Version: 0.1.0
 Summary: A GATK SNP Calling Pipeline
 Home-page: https://github.com/yourusername/gatk_callSNP_workflow_package
 Author: Your Name
-Author-email: your.email@example.com
+Author-email: Your Name <your.email@example.com>
 Classifier: Programming Language :: Python :: 3
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
@@ -14,6 +14,9 @@ Requires-Dist: pyyaml>=6.0
 Requires-Dist: setuptools>=45.0.0
 Requires-Dist: wheel>=0.34.0
 Requires-Dist: psutil>=5.8.0
+Dynamic: author
+Dynamic: home-page
+Dynamic: requires-python
 
 # GATK SNP Calling Pipeline
 
