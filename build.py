@@ -67,7 +67,7 @@ def build_executable():
         "--name", exe_name,
         "--add-data", "README.md:.",
         "--add-data", "DEPENDENCY_TROUBLESHOOTING.md:.",
-        "gatk_snp_pipeline/main.py"
+        "src/gatk_snp_pipeline/cli.py"
     ]
     
     # 执行构建
