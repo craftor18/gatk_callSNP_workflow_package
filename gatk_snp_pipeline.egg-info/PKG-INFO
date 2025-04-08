@@ -1,0 +1,313 @@
+Metadata-Version: 2.1
+Name: gatk-snp-pipeline
+Version: 0.1.0
+Summary: A GATK SNP Calling Pipeline
+Home-page: https://github.com/yourusername/gatk_callSNP_workflow_package
+Author: Your Name
+Author-email: your.email@example.com
+Classifier: Programming Language :: Python :: 3
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Requires-Python: >=3.6
+Description-Content-Type: text/markdown
+Requires-Dist: pyyaml>=6.0
+Requires-Dist: setuptools>=45.0.0
+Requires-Dist: wheel>=0.34.0
+Requires-Dist: psutil>=5.8.0
+
+# GATK SNP Calling Pipeline
+
+基于Python实现的GATK SNP Calling流程，提供从参考基因组索引到SNP过滤的完整流程。
+
+## 环境要求
+
+### Python依赖
+
+- Python 3.6+
+- pyyaml>=6.0
+- setuptools>=45.0.0
+- wheel>=0.34.0
+
+### 生物信息学软件依赖
+
+#### 可以通过conda/mamba安装的软件
+
+```bash
+mamba install -c bioconda:
+- gatk4 (>=4.0.0.0)
+- bwa (>=0.7.17)
+- samtools (>=1.10)
+- picard (>=2.27.0)
+- vcftools (>=0.1.16)
+- bcftools
+- fastp (>=0.20.0)
+- qualimap (>=2.2.2)
+- multiqc (>=1.9)
+```
+
+#### 需要手动安装的软件
+
+- bwa-mem2 (https://github.com/bwa-mem2/bwa-mem2)
+
+### 其他要求
+
+- Java 8+ (GATK需要)
+
+## 安装方法
+
+### 方法一：使用pip安装（推荐）
+
+```bash
+# 从PyPI安装
+pip install gatk-snp-pipeline
+
+# 或者从本地安装
+pip install .
+```
+
+### 方法二：从源码安装
+
+1. 克隆仓库
+
+   ```bash
+   git clone https://github.com/yourusername/gatk_callSNP_workflow_package.git
+   cd gatk_callSNP_workflow_package
+   ```
+
+2. 安装Python依赖
+
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+3. 安装生物信息学软件
+
+   ```bash
+   # 使用conda/mamba安装大部分依赖
+   mamba create -n gatkPipeline
+   mamba activate gatkPipeline
+   mamba install -c bioconda gatk4 bwa samtools picard vcftools fastp qualimap multiqc bcftools
+
+   # 手动安装bwa-mem2
+   # 请参考 https://github.com/bwa-mem2/bwa-mem2 的安装说明
+   ```
+
+### 方法三：使用conda安装
+
+```bash
+# 创建并激活conda环境
+conda create -n gatkPipeline python=3.8
+conda activate gatkPipeline
+
+# 安装依赖
+conda install -c bioconda gatk4 bwa samtools picard vcftools fastp qualimap multiqc bcftools
+
+# 安装gatk-snp-pipeline
+pip install gatk-snp-pipeline
+```
+
+## 使用方法
+
+### 方法一：命令行方式
+
+#### 1. 创建配置文件
+
+```bash
+gatk-snp-pipeline init --config path/to/your/config.yaml
+```
+
+#### 2. 运行完整流程
+
+```bash
+gatk-snp-pipeline run --config path/to/your/config.yaml
+```
+
+#### 3. 运行单个步骤
+
+```bash
+gatk-snp-pipeline run --config path/to/your/config.yaml --step step_name
+```
+
+#### 4. 从特定步骤开始运行
+
+```bash
+gatk-snp-pipeline run --config path/to/your/config.yaml --from-step step_name
+```
+
+#### 5. 检查依赖
+
+```bash
+gatk-snp-pipeline check-deps
+```
+
+### 方法二：Python脚本方式
+
+```python
+from gatk_snp_pipeline import Pipeline, ConfigManager
+
+# 创建配置管理器
+config = ConfigManager("path/to/config.yaml")
+
+# 创建并运行流程
+pipeline = Pipeline(config)
+result = pipeline.run_all()
+
+# 或者只运行特定步骤
+result = pipeline.run_step("ref_index")
+```
+
+### 方法三：Jupyter Notebook方式
+
+```python
+# 在Jupyter Notebook中
+from gatk_snp_pipeline import Pipeline, ConfigManager
+
+# 创建配置管理器
+config = ConfigManager("path/to/config.yaml")
+
+# 创建并运行流程
+pipeline = Pipeline(config)
+
+# 运行完整流程
+result = pipeline.run_all()
+
+# 或者运行特定步骤
+result = pipeline.run_step("ref_index")
+
+# 查看结果
+print(result)
+```
+
+可用的步骤名称:
+
+- `ref_index`: 创建参考基因组索引
+- `bwa_map`: BWA比对
+- `sort_sam`: 排序SAM文件
+- `mark_duplicates`: 标记重复序列
+- `index_bam`: 索引BAM文件
+- `haplotype_caller`: GATK HaplotypeCaller
+- `combine_gvcfs`: 合并GVCF文件
+- `genotype_gvcfs`: 基因型分型
+- `vcf_filter`: VCF过滤
+- `select_snp`: 选择SNP
+- `soft_filter_snp`: SNP软过滤，仅在FILTER字段标记而不删除
+- `get_gwas_data`: 获取GWAS数据
+
+## 配置文件说明
+
+配置文件使用YAML格式，包含以下主要部分：
+
+```yaml
+# 基本配置
+samples_dir: /path/to/samples        # 测序数据目录
+output_dir: /path/to/output         # 输出目录
+reference_genome: /path/to/ref.fa   # 参考基因组路径
+
+# 性能配置
+threads_per_job: 8                  # 每个任务使用的线程数
+max_parallel_jobs: 3                # 最大并行任务数
+max_memory: 32                      # 最大内存使用量(GB)
+
+# 软件路径配置（可选，如果软件在PATH中则不需要）
+software_paths:
+  gatk: /path/to/gatk
+  bwa: /path/to/bwa
+  samtools: /path/to/samtools
+  # ... 其他软件路径
+```
+
+## 自动依赖检测
+
+程序会在以下情况下自动检测依赖：
+
+1. **首次运行**
+   - 检查所有必要的软件是否已安装
+   - 验证软件版本是否满足要求
+   - 检查系统资源是否充足
+
+2. **运行特定步骤时**
+   - 检查该步骤所需的所有依赖
+   - 如果缺少依赖，提供安装建议
+
+3. **配置文件更新时**
+   - 验证配置文件中指定的软件路径是否有效
+   - 检查新配置是否满足系统要求
+
+## 错误处理
+
+程序提供详细的错误信息和解决方案：
+
+1. **依赖错误**
+   - 显示缺失的软件
+   - 提供安装命令
+   - 建议替代方案
+
+2. **配置错误**
+   - 指出配置文件中错误的部分
+   - 提供正确的配置示例
+   - 自动修复常见错误
+
+3. **运行时错误**
+   - 记录详细的错误日志
+   - 提供错误恢复建议
+   - 支持断点续传
+
+## 流程步骤
+
+1. **参考基因组索引** (`ref_index`)
+
+   - 使用BWA创建索引
+   - 使用GATK创建序列字典
+   - 使用Samtools创建faidx索引
+2. **BWA比对** (`bwa_map`)
+
+   - 将测序数据比对到参考基因组
+   - 生成SAM文件
+3. **排序SAM文件** (`sort_sam`)
+
+   - 使用Samtools或GATK排序SAM文件
+   - 生成BAM文件
+4. **标记重复序列** (`mark_duplicates`)
+
+   - 使用GATK MarkDuplicates工具标记PCR重复序列
+5. **索引BAM文件** (`index_bam`)
+
+   - 为BAM文件创建索引
+6. **GATK HaplotypeCaller** (`haplotype_caller`)
+
+   - 使用GATK HaplotypeCaller检测变异
+   - 生成GVCF文件
+7. **合并GVCF文件** (`combine_gvcfs`)
+
+   - 合并多个样本的GVCF文件
+8. **基因型分型** (`genotype_gvcfs`)
+
+   - 对合并的GVCF文件进行基因型分型
+   - 生成VCF文件
+9. **VCF过滤** (`vcf_filter`)
+
+   - 过滤低质量的变异
+10. **选择SNP** (`select_snp`)
+
+    - 从VCF文件中选择SNP变异
+11. **SNP软过滤** (`soft_filter_snp`)
+
+    - 对SNP变异进行软过滤，在FILTER字段标记而不删除
+    - 保留所有变异，便于后续分析
+12. **获取GWAS数据** (`get_gwas_data`)
+
+    - 准备GWAS分析所需的数据
+
+## SNP硬过滤与软过滤的区别
+
+- **硬过滤**：使用`vcf_filter`步骤，不符合质量标准的变异被直接从VCF文件中删除
+- **软过滤**：使用`soft_filter_snp`步骤，不符合质量标准的变异会在FILTER字段被标记（如"snp_filter"），但变异本身不会被删除
+- 软过滤的优势在于保留了更多信息，便于研究人员根据自己的需求进行分析和决策
+
+## Windows注意事项
+
+Windows用户需要确保已正确安装BWA, GATK, Samtools，并且可以在命令行中访问。建议将这些工具的路径添加到系统的PATH环境变量中。
+
+## 许可证
+
+[许可证名称] - 查看 LICENSE 文件了解详情

@@ -1,0 +1,2 @@
+[console_scripts]
+gatk-snp-pipeline = gatk_snp_pipeline.cli:main
