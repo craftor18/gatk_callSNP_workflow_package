@@ -60,15 +60,43 @@ def build_executable():
     if system == 'windows':
         exe_name += '.exe'
     
-    cmd = [
-        "pyinstaller",
-        "--clean",
-        "--onefile",
-        "--name", exe_name,
-        "--add-data", "README.md:.",
-        "--add-data", "DEPENDENCY_TROUBLESHOOTING.md:.",
-        "src/gatk_snp_pipeline/cli.py"
-    ]
+    # 根据平台设置不同的参数
+    if system == 'linux':
+        # Linux特定设置
+        cmd = [
+            "pyinstaller",
+            "--clean",
+            "--onefile",
+            "--name", exe_name,
+            "--add-data", "README.md:.",
+            "--add-data", "DEPENDENCY_TROUBLESHOOTING.md:.",
+            "--add-data", "config:config",
+            "gatk_snp_pipeline/cli.py"
+        ]
+    elif system == 'darwin':
+        # macOS特定设置
+        cmd = [
+            "pyinstaller",
+            "--clean",
+            "--onefile",
+            "--name", exe_name,
+            "--add-data", "README.md:.",
+            "--add-data", "DEPENDENCY_TROUBLESHOOTING.md:.",
+            "--add-data", "config:config",
+            "gatk_snp_pipeline/cli.py"
+        ]
+    else:
+        # Windows设置
+        cmd = [
+            "pyinstaller",
+            "--clean",
+            "--onefile",
+            "--name", exe_name,
+            "--add-data", "README.md;.",
+            "--add-data", "DEPENDENCY_TROUBLESHOOTING.md;.",
+            "--add-data", "config;config",
+            "gatk_snp_pipeline/cli.py"
+        ]
     
     # 执行构建
     try:
@@ -87,6 +115,11 @@ def build_executable():
             if exe_path.exists():
                 size_mb = exe_path.stat().st_size / (1024 * 1024)
                 print(f"\n文件大小: {size_mb:.1f} MB")
+                
+                # 设置可执行权限（Linux和macOS）
+                if system in ['linux', 'darwin']:
+                    os.chmod(exe_path, 0o755)
+                    print(f"已设置可执行权限: {exe_path}")
     except subprocess.CalledProcessError as e:
         print(f"\n构建失败: {e}")
         sys.exit(1)
