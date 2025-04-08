@@ -39,8 +39,17 @@ jobs:
         pip install -r requirements.txt
         pip install pyinstaller
     
-    - name: Create dist directory
+    - name: Create dist directory (Linux/macOS)
+      if: matrix.os != 'windows-latest'
       run: mkdir -p dist
+      
+    - name: Create dist directory (Windows)
+      if: matrix.os == 'windows-latest'
+      shell: pwsh
+      run: |
+        if (!(Test-Path -Path "dist")) {
+          New-Item -Path "dist" -ItemType Directory -Force
+        }
     
     - name: Build executable
       shell: bash
