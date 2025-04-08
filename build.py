@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 """
 构建可执行程序的脚本
 支持跨平台构建（Windows, Linux, macOS）
@@ -10,6 +11,12 @@ import shutil
 import platform
 import subprocess
 from pathlib import Path
+
+# 设置控制台编码
+if platform.system() == 'Windows':
+    import codecs
+    sys.stdout = codecs.getwriter('utf-8')(sys.stdout.buffer)
+    sys.stderr = codecs.getwriter('utf-8')(sys.stderr.buffer)
 
 def clean_build_dirs():
     """清理构建目录"""
