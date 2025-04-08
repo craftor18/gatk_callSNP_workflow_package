@@ -112,41 +112,85 @@ def run_pipeline(args):
 
 def main():
     """主入口函数"""
-    parser = argparse.ArgumentParser(description="GATK SNP Calling Pipeline")
-    subparsers = parser.add_subparsers(dest="command", help="可用命令")
+    # 创建主解析器
+    parser = argparse.ArgumentParser(
+        description="GATK SNP Calling Pipeline",
+        formatter_class=argparse.RawDescriptionHelpFormatter
+    )
+    
+    # 创建子命令解析器
+    subparsers = parser.add_subparsers(
+        dest="command",
+        help="可用命令",
+        metavar="COMMAND"
+    )
     
     # init 命令
-    init_parser = subparsers.add_parser("init", help="初始化配置文件")
-    init_parser.add_argument("--config", required=True, help="配置文件路径")
+    init_parser = subparsers.add_parser(
+        "init",
+        help="初始化配置文件",
+        description="初始化一个新的配置文件"
+    )
+    init_parser.add_argument(
+        "--config",
+        required=True,
+        help="配置文件路径"
+    )
     init_parser.set_defaults(func=init_config)
     
     # check-deps 命令
-    check_parser = subparsers.add_parser("check-deps", help="检查依赖")
-    check_parser.add_argument("--skip-version-check", action="store_true", help="跳过版本检查，只检查软件是否存在")
+    check_parser = subparsers.add_parser(
+        "check-deps",
+        help="检查依赖",
+        description="检查所有必需的软件依赖是否已安装"
+    )
+    check_parser.add_argument(
+        "--skip-version-check",
+        action="store_true",
+        help="跳过版本检查，只检查软件是否存在"
+    )
     check_parser.set_defaults(func=check_dependencies)
     
     # run 命令
-    run_parser = subparsers.add_parser("run", help="运行流程")
-    run_parser.add_argument("--config", required=True, help="配置文件路径")
-    run_parser.add_argument("--step", help="运行特定步骤")
-    run_parser.add_argument("--from-step", help="从特定步骤开始运行")
-    run_parser.add_argument("--skip-deps", action="store_true", help="跳过依赖检查")
-    run_parser.add_argument("--skip-version-check", action="store_true", help="跳过版本检查，只检查软件是否存在")
+    run_parser = subparsers.add_parser(
+        "run",
+        help="运行流程",
+        description="运行GATK SNP Calling流程"
+    )
+    run_parser.add_argument(
+        "--config",
+        required=True,
+        help="配置文件路径"
+    )
+    run_parser.add_argument(
+        "--step",
+        help="运行特定步骤"
+    )
+    run_parser.add_argument(
+        "--from-step",
+        help="从特定步骤开始运行"
+    )
+    run_parser.add_argument(
+        "--skip-deps",
+        action="store_true",
+        help="跳过依赖检查"
+    )
+    run_parser.add_argument(
+        "--skip-version-check",
+        action="store_true",
+        help="跳过版本检查，只检查软件是否存在"
+    )
     run_parser.set_defaults(func=run_pipeline)
     
-    # 解析参数
+    # 如果没有提供命令，显示帮助信息
     if len(sys.argv) == 1:
         parser.print_help()
         sys.exit(1)
     
-    # 在Linux环境下，需要确保命令名称正确
-    if len(sys.argv) > 1 and sys.argv[1] not in ["init", "check-deps", "run"]:
-        print(f"错误: 未知命令 '{sys.argv[1]}'")
-        parser.print_help()
-        sys.exit(1)
-    
+    # 解析参数
     args = parser.parse_args()
     
+    # 执行对应的函数
     if hasattr(args, 'func'):
         args.func(args)
     else:
@@ -154,5 +198,4 @@ def main():
         sys.exit(1)
 
 if __name__ == "__main__":
-    main() 
     main() 
