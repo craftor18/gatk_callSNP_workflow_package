@@ -1,0 +1,2 @@
+gatk_snp_pipeline
+src
