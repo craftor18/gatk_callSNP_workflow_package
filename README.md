@@ -283,3 +283,29 @@ software_paths:
 ## 许可证
 
 [许可证名称] - 查看 LICENSE 文件了解详情
+
+## 高级选项
+
+### 依赖检查控制
+
+GATK SNP Calling Pipeline提供了多种选项来控制依赖检查行为：
+
+- `--skip-deps`: 完全跳过依赖检查，直接运行流程
+- `--skip-version-check`: 跳过版本检查，只检查软件是否存在，在conda环境中特别有用
+
+例如：
+
+```bash
+# 跳过版本检查
+gatk-snp-pipeline check-deps --skip-version-check
+
+# 运行流程并跳过版本检查
+gatk-snp-pipeline run --config config.yaml --skip-version-check
+
+# 完全跳过依赖检查
+gatk-snp-pipeline run --config config.yaml --skip-deps
+```
+
+### 依赖问题排查
+
+如果您在依赖检查中遇到问题，请参阅 [依赖问题排查指南](DEPENDENCY_TROUBLESHOOTING.md)。
