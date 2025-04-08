@@ -70,7 +70,6 @@ def build_executable():
             "--name", exe_name,
             "--add-data", "README.md:.",
             "--add-data", "DEPENDENCY_TROUBLESHOOTING.md:.",
-            "--add-data", "config:config",
             "gatk_snp_pipeline/cli.py"
         ]
     elif system == 'darwin':
@@ -82,7 +81,6 @@ def build_executable():
             "--name", exe_name,
             "--add-data", "README.md:.",
             "--add-data", "DEPENDENCY_TROUBLESHOOTING.md:.",
-            "--add-data", "config:config",
             "gatk_snp_pipeline/cli.py"
         ]
     else:
@@ -94,7 +92,6 @@ def build_executable():
             "--name", exe_name,
             "--add-data", "README.md;.",
             "--add-data", "DEPENDENCY_TROUBLESHOOTING.md;.",
-            "--add-data", "config;config",
             "gatk_snp_pipeline/cli.py"
         ]
     
