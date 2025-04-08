@@ -1,6 +1,6 @@
-import subprocess
-from typing import Tuple, List
 import logging
+from typing import Tuple, List
+from .cmd_utils import CommandExecutor
 
 class DependencyChecker:
     """依赖检查器"""
@@ -8,6 +8,7 @@ class DependencyChecker:
     def __init__(self, config):
         self.config = config
         self.logger = logging.getLogger(__name__)
+        self.cmd_executor = CommandExecutor()
         self.required_software = [
             "samtools",
             "picard",
@@ -26,13 +27,7 @@ class DependencyChecker:
         missing = []
         for software in self.required_software:
             try:
-                # 使用which命令检查软件是否存在
-                result = subprocess.run(
-                    ["which", software],
-                    capture_output=True,
-                    text=True
-                )
-                if result.returncode != 0:
+                if not self.cmd_executor.which(software):
                     missing.append(f"未找到 {software}，请安装 {software}")
             except Exception as e:
                 self.logger.error(f"检查 {software} 时出错: {str(e)}")
