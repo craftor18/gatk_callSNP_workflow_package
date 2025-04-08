@@ -34,8 +34,16 @@ jobs:
         python -m pip install --upgrade pip
         pip install -r requirements.txt
         pip install pyinstaller
+    - name: Create dist directory
+      run: mkdir -p dist
     - name: Build Windows executable
       run: python build.py
+    - name: Check executable
+      run: |
+        if (!(Test-Path dist/gatk-snp-pipeline-windows-x64.exe)) {
+          Write-Error "Windows executable not found"
+          exit 1
+        }
     - name: Upload artifact
       uses: actions/upload-artifact@v3
       with:
@@ -63,8 +71,17 @@ jobs:
         python -m pip install --upgrade pip
         pip install -r requirements.txt
         pip install pyinstaller
+    - name: Create dist directory
+      run: mkdir -p dist
     - name: Build Linux executable
       run: python build.py
+    - name: Check executable
+      run: |
+        if [ ! -f dist/gatk-snp-pipeline-linux-x64 ]; then
+          echo "Linux executable not found"
+          exit 1
+        fi
+        chmod +x dist/gatk-snp-pipeline-linux-x64
     - name: Upload artifact
       uses: actions/upload-artifact@v3
       with:
@@ -92,8 +109,17 @@ jobs:
         python -m pip install --upgrade pip
         pip install -r requirements.txt
         pip install pyinstaller
+    - name: Create dist directory
+      run: mkdir -p dist
     - name: Build macOS executable
       run: python build.py
+    - name: Check executable
+      run: |
+        if [ ! -f dist/gatk-snp-pipeline-darwin-x64 ]; then
+          echo "macOS executable not found"
+          exit 1
+        fi
+        chmod +x dist/gatk-snp-pipeline-darwin-x64
     - name: Upload artifact
       uses: actions/upload-artifact@v3
       with:
@@ -109,38 +135,13 @@ jobs:
       uses: actions/download-artifact@v3
     - name: Create Release
       id: create_release
-      uses: actions/create-release@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      uses: softprops/action-gh-release@v1
       with:
-        tag_name: ${{ github.ref }}
-        release_name: Release ${{ github.ref }}
+        files: |
+          windows-exe/gatk-snp-pipeline-windows-x64.exe
+          linux-exe/gatk-snp-pipeline-linux-x64
+          macos-exe/gatk-snp-pipeline-darwin-x64
         draft: false
         prerelease: false
-    - name: Upload Windows Release Asset
-      uses: actions/upload-release-asset@v1
       env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: ./windows-exe/gatk-snp-pipeline-windows-x64.exe
-        asset_name: gatk-snp-pipeline-windows-x64.exe
-        asset_content_type: application/octet-stream
-    - name: Upload Linux Release Asset
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: ./linux-exe/gatk-snp-pipeline-linux-x64
-        asset_name: gatk-snp-pipeline-linux-x64
-        asset_content_type: application/octet-stream
-    - name: Upload macOS Release Asset
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: ./macos-exe/gatk-snp-pipeline-darwin-x64
-        asset_name: gatk-snp-pipeline-darwin-x64
-        asset_content_type: application/octet-stream 
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} 
