@@ -258,17 +258,24 @@ software_paths:
 ## 常见问题
 
 1. **依赖检查失败**
-
    - 确保所有软件都已正确安装
    - 检查软件版本是否满足要求
    - 确保软件路径已添加到系统PATH
-2. **内存不足**
+   - 如果依赖检测显示错误但软件已正确安装，可以手动验证：
+     ```bash
+     # 检查软件是否存在
+     which software_name
+     
+     # 检查软件版本
+     software_name --version
+     ```
 
+2. **内存不足**
    - 增加系统内存
    - 调整配置文件中的`max_memory`参数
    - 减少`max_parallel_jobs`参数
-3. **运行速度慢**
 
+3. **运行速度慢**
    - 增加`threads_per_job`参数
    - 增加`max_parallel_jobs`参数
    - 使用SSD存储

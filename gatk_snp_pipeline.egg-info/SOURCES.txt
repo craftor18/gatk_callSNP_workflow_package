@@ -32,6 +32,7 @@ src/steps/sort_sam.py
 src/steps/vcf_filter.py
 src/utils/__init__.py
 src/utils/cmd_utils.py
+src/utils/dependency_checker.py
 src/utils/file_utils.py
 src/utils/sample_manager.py
 src/utils/task_scheduler.py

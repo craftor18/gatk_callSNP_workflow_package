@@ -21,9 +21,16 @@ Requires-Dist: psutil>=5.8.0
 
 ## 环境要求
 
+### 系统要求
+
+- 操作系统：Windows/Linux/macOS
+- 内存：建议至少32GB
+- 存储：根据数据量确定，建议至少100GB可用空间
+- Java：Java 8或更高版本
+
 ### Python依赖
 
-- Python 3.6+
+- Python >=3.6+
 - pyyaml>=6.0
 - setuptools>=45.0.0
 - wheel>=0.34.0
@@ -49,10 +56,6 @@ mamba install -c bioconda:
 
 - bwa-mem2 (https://github.com/bwa-mem2/bwa-mem2)
 
-### 其他要求
-
-- Java 8+ (GATK需要)
-
 ## 安装方法
 
 ### 方法一：使用pip安装（推荐）
@@ -73,13 +76,11 @@ pip install .
    git clone https://github.com/yourusername/gatk_callSNP_workflow_package.git
    cd gatk_callSNP_workflow_package
    ```
-
 2. 安装Python依赖
 
    ```bash
    pip install -r requirements.txt
    ```
-
 3. 安装生物信息学软件
 
    ```bash
@@ -96,7 +97,7 @@ pip install .
 
 ```bash
 # 创建并激活conda环境
-conda create -n gatkPipeline python=3.8
+conda create -n gatkPipeline
 conda activate gatkPipeline
 
 # 安装依赖
@@ -110,34 +111,36 @@ pip install gatk-snp-pipeline
 
 ### 方法一：命令行方式
 
-#### 1. 创建配置文件
+#### 1. 检查依赖
+
+在开始之前，建议先检查所有依赖是否已正确安装：
+
+```bash
+gatk-snp-pipeline check-deps
+```
+
+#### 2. 创建配置文件
 
 ```bash
 gatk-snp-pipeline init --config path/to/your/config.yaml
 ```
 
-#### 2. 运行完整流程
+#### 3. 运行完整流程
 
 ```bash
 gatk-snp-pipeline run --config path/to/your/config.yaml
 ```
 
-#### 3. 运行单个步骤
+#### 4. 运行单个步骤
 
 ```bash
 gatk-snp-pipeline run --config path/to/your/config.yaml --step step_name
 ```
 
-#### 4. 从特定步骤开始运行
+#### 5. 从特定步骤开始运行
 
 ```bash
 gatk-snp-pipeline run --config path/to/your/config.yaml --from-step step_name
-```
-
-#### 5. 检查依赖
-
-```bash
-gatk-snp-pipeline check-deps
 ```
 
 ### 方法二：Python脚本方式
@@ -178,21 +181,6 @@ result = pipeline.run_step("ref_index")
 print(result)
 ```
 
-可用的步骤名称:
-
-- `ref_index`: 创建参考基因组索引
-- `bwa_map`: BWA比对
-- `sort_sam`: 排序SAM文件
-- `mark_duplicates`: 标记重复序列
-- `index_bam`: 索引BAM文件
-- `haplotype_caller`: GATK HaplotypeCaller
-- `combine_gvcfs`: 合并GVCF文件
-- `genotype_gvcfs`: 基因型分型
-- `vcf_filter`: VCF过滤
-- `select_snp`: 选择SNP
-- `soft_filter_snp`: SNP软过滤，仅在FILTER字段标记而不删除
-- `get_gwas_data`: 获取GWAS数据
-
 ## 配置文件说明
 
 配置文件使用YAML格式，包含以下主要部分：
@@ -216,43 +204,7 @@ software_paths:
   # ... 其他软件路径
 ```
 
-## 自动依赖检测
-
-程序会在以下情况下自动检测依赖：
-
-1. **首次运行**
-   - 检查所有必要的软件是否已安装
-   - 验证软件版本是否满足要求
-   - 检查系统资源是否充足
-
-2. **运行特定步骤时**
-   - 检查该步骤所需的所有依赖
-   - 如果缺少依赖，提供安装建议
-
-3. **配置文件更新时**
-   - 验证配置文件中指定的软件路径是否有效
-   - 检查新配置是否满足系统要求
-
-## 错误处理
-
-程序提供详细的错误信息和解决方案：
-
-1. **依赖错误**
-   - 显示缺失的软件
-   - 提供安装命令
-   - 建议替代方案
-
-2. **配置错误**
-   - 指出配置文件中错误的部分
-   - 提供正确的配置示例
-   - 自动修复常见错误
-
-3. **运行时错误**
-   - 记录详细的错误日志
-   - 提供错误恢复建议
-   - 支持断点续传
-
-## 流程步骤
+## 流程步骤说明
 
 1. **参考基因组索引** (`ref_index`)
 
@@ -286,27 +238,64 @@ software_paths:
    - 生成VCF文件
 9. **VCF过滤** (`vcf_filter`)
 
-   - 过滤低质量的变异
+   - 使用GATK进行硬过滤
+   - 删除不符合质量标准的变异
 10. **选择SNP** (`select_snp`)
 
     - 从VCF文件中选择SNP变异
 11. **SNP软过滤** (`soft_filter_snp`)
 
-    - 对SNP变异进行软过滤，在FILTER字段标记而不删除
+    - 使用vcftools进行软过滤
+    - 在FILTER字段标记不符合标准的变异
     - 保留所有变异，便于后续分析
 12. **获取GWAS数据** (`get_gwas_data`)
 
     - 准备GWAS分析所需的数据
 
-## SNP硬过滤与软过滤的区别
+## 错误处理
 
-- **硬过滤**：使用`vcf_filter`步骤，不符合质量标准的变异被直接从VCF文件中删除
-- **软过滤**：使用`soft_filter_snp`步骤，不符合质量标准的变异会在FILTER字段被标记（如"snp_filter"），但变异本身不会被删除
-- 软过滤的优势在于保留了更多信息，便于研究人员根据自己的需求进行分析和决策
+程序提供详细的错误信息和解决方案：
 
-## Windows注意事项
+1. **依赖错误**
 
-Windows用户需要确保已正确安装BWA, GATK, Samtools，并且可以在命令行中访问。建议将这些工具的路径添加到系统的PATH环境变量中。
+   - 显示缺失的软件
+   - 提供安装命令
+   - 建议替代方案
+2. **配置错误**
+
+   - 指出配置文件中错误的部分
+   - 提供正确的配置示例
+   - 自动修复常见错误
+3. **运行时错误**
+
+   - 记录详细的错误日志
+   - 提供错误恢复建议
+   - 支持断点续传
+
+## 常见问题
+
+1. **依赖检查失败**
+   - 确保所有软件都已正确安装
+   - 检查软件版本是否满足要求
+   - 确保软件路径已添加到系统PATH
+   - 如果依赖检测显示错误但软件已正确安装，可以手动验证：
+     ```bash
+     # 检查软件是否存在
+     which software_name
+     
+     # 检查软件版本
+     software_name --version
+     ```
+
+2. **内存不足**
+   - 增加系统内存
+   - 调整配置文件中的`max_memory`参数
+   - 减少`max_parallel_jobs`参数
+
+3. **运行速度慢**
+   - 增加`threads_per_job`参数
+   - 增加`max_parallel_jobs`参数
+   - 使用SSD存储
 
 ## 许可证
 
