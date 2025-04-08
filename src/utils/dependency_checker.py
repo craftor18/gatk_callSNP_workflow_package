@@ -1,4 +1,5 @@
 import subprocess
+import os
 from typing import Tuple, List
 import logging
 
@@ -20,6 +21,24 @@ class DependencyChecker:
             "bwa-mem2",
             "java"
         ]
+        
+        # 获取完整的PATH环境
+        self.env = os.environ.copy()
+        
+        # 获取当前shell的PATH
+        try:
+            shell_path = subprocess.run(
+                ["bash", "-c", "echo $PATH"],
+                capture_output=True,
+                text=True
+            ).stdout.strip()
+            
+            # 合并PATH
+            current_path = self.env.get("PATH", "")
+            if shell_path not in current_path:
+                self.env["PATH"] = f"{shell_path}:{current_path}"
+        except Exception as e:
+            self.logger.warning(f"获取shell PATH失败: {str(e)}")
     
     def check_dependencies(self) -> Tuple[bool, List[str]]:
         """检查所有依赖"""
@@ -28,9 +47,10 @@ class DependencyChecker:
             try:
                 # 使用which命令检查软件是否存在
                 result = subprocess.run(
-                    ["which", software],
+                    ["bash", "-c", f"which {software}"],
                     capture_output=True,
-                    text=True
+                    text=True,
+                    env=self.env
                 )
                 if result.returncode != 0:
                     missing.append(f"未找到 {software}，请安装 {software}")
