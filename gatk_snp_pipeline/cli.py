@@ -135,18 +135,24 @@ def main():
     run_parser.set_defaults(func=run_pipeline)
     
     # 解析参数
-    args = parser.parse_args()
-    
-    # 打印版本信息帮助
     if len(sys.argv) == 1:
         parser.print_help()
         sys.exit(1)
     
-    if args.command:
+    # 在Linux环境下，需要确保命令名称正确
+    if len(sys.argv) > 1 and sys.argv[1] not in ["init", "check-deps", "run"]:
+        print(f"错误: 未知命令 '{sys.argv[1]}'")
+        parser.print_help()
+        sys.exit(1)
+    
+    args = parser.parse_args()
+    
+    if hasattr(args, 'func'):
         args.func(args)
     else:
         parser.print_help()
         sys.exit(1)
 
 if __name__ == "__main__":
+    main() 
     main() 
