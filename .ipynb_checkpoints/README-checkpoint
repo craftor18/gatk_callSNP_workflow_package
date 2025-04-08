@@ -1,9 +1,0 @@
-required_environment_and_software:
-    java
-    python3
-    snakmake
-    bwa
-    GATK>=4.0（4.3.0.0）
-    samtools
-example_usage_command:
-    python run_workflow.py {step} --config_file path/to/your/config.yaml  --work_dir path/to/your/work/directory

@@ -41,151 +41,131 @@ mamba install -c bioconda:
 
 ## 安装方法
 
-### 方法一：使用pip安装（推荐）
+### 方法一：直接使用可执行程序（推荐）
 
+1. 从[发布页面](https://github.com/yourusername/gatk-snp-pipeline/releases)下载对应平台的可执行程序
+2. 将可执行程序添加到系统PATH中
+3. 在命令行中直接使用`gatk-snp-pipeline`命令
+
+### 方法二：从源码构建可执行程序
+
+1. 克隆仓库：
 ```bash
-# 从PyPI安装
-pip install gatk-snp-pipeline
-
-# 或者从本地安装
-pip install .
+git clone https://github.com/yourusername/gatk-snp-pipeline.git
+cd gatk-snp-pipeline
 ```
 
-### 方法二：从源码安装
+2. 安装依赖：
+```bash
+pip install -r requirements.txt
+```
 
-1. 克隆仓库
+3. 构建可执行程序：
+```bash
+python build.py
+```
 
-   ```bash
-   git clone https://github.com/yourusername/gatk_callSNP_workflow_package.git
-   cd gatk_callSNP_workflow_package
-   ```
-2. 安装Python依赖
+4. 构建完成后，可执行程序将位于`dist`目录下
 
-   ```bash
-   pip install -r requirements.txt
-   ```
-3. 安装生物信息学软件
-
-   ```bash
-   # 使用conda/mamba安装大部分依赖
-   mamba create -n gatkPipeline
-   mamba activate gatkPipeline
-   mamba install -c bioconda gatk4 bwa samtools picard vcftools fastp qualimap multiqc bcftools
-
-   # 手动安装bwa-mem2
-   # 请参考 https://github.com/bwa-mem2/bwa-mem2 的安装说明
-   ```
-
-### 方法三：使用conda安装
+### 方法三：使用pip安装（开发模式）
 
 ```bash
-# 创建并激活conda环境
-conda create -n gatkPipeline
-conda activate gatkPipeline
-
-# 安装依赖
-conda install -c bioconda gatk4 bwa samtools picard vcftools fastp qualimap multiqc bcftools
-
-# 安装gatk-snp-pipeline
-pip install gatk-snp-pipeline
+pip install -e .
 ```
 
 ## 使用方法
 
-### 方法一：命令行方式
-
-#### 1. 检查依赖
-
-在开始之前，建议先检查所有依赖是否已正确安装：
+### 命令行接口
 
 ```bash
-gatk-snp-pipeline check-deps
+# 检查依赖
+gatk-snp-pipeline check-deps [--skip-version-check]
+
+# 初始化配置文件
+gatk-snp-pipeline init --config config.yaml
+
+# 运行流程
+gatk-snp-pipeline run --config config.yaml [--step STEP] [--from-step STEP] [--skip-deps] [--skip-version-check]
 ```
 
-#### 2. 创建配置文件
-
-```bash
-gatk-snp-pipeline init --config path/to/your/config.yaml
-```
-
-#### 3. 运行完整流程
-
-```bash
-gatk-snp-pipeline run --config path/to/your/config.yaml
-```
-
-#### 4. 运行单个步骤
-
-```bash
-gatk-snp-pipeline run --config path/to/your/config.yaml --step step_name
-```
-
-#### 5. 从特定步骤开始运行
-
-```bash
-gatk-snp-pipeline run --config path/to/your/config.yaml --from-step step_name
-```
-
-### 方法二：Python脚本方式
+### Python API
 
 ```python
-from gatk_snp_pipeline import Pipeline, ConfigManager
+from gatk_snp_pipeline import Pipeline
 
-# 创建配置管理器
-config = ConfigManager("path/to/config.yaml")
-
-# 创建并运行流程
-pipeline = Pipeline(config)
-result = pipeline.run_all()
-
-# 或者只运行特定步骤
-result = pipeline.run_step("ref_index")
-```
-
-### 方法三：Jupyter Notebook方式
-
-```python
-# 在Jupyter Notebook中
-from gatk_snp_pipeline import Pipeline, ConfigManager
-
-# 创建配置管理器
-config = ConfigManager("path/to/config.yaml")
-
-# 创建并运行流程
-pipeline = Pipeline(config)
+# 创建流程实例
+pipeline = Pipeline(config_path="config.yaml")
 
 # 运行完整流程
-result = pipeline.run_all()
+pipeline.run_all()
 
-# 或者运行特定步骤
-result = pipeline.run_step("ref_index")
+# 运行特定步骤
+pipeline.run_step("bwa_map")
 
-# 查看结果
-print(result)
+# 从特定步骤开始运行
+pipeline.run_from_step("mark_duplicates")
 ```
 
-## 配置文件说明
+### Jupyter Notebook
 
-配置文件使用YAML格式，包含以下主要部分：
+```python
+from gatk_snp_pipeline import Pipeline
+import yaml
+
+# 加载配置
+with open("config.yaml") as f:
+    config = yaml.safe_load(f)
+
+# 创建流程实例
+pipeline = Pipeline(config=config)
+
+# 运行流程
+pipeline.run_all()
+```
+
+## 配置说明
+
+配置文件示例（config.yaml）：
 
 ```yaml
-# 基本配置
-samples_dir: /path/to/samples        # 测序数据目录
-output_dir: /path/to/output         # 输出目录
-reference_genome: /path/to/ref.fa   # 参考基因组路径
+# 输入输出配置
+input:
+  fastq_dir: "path/to/fastq"
+  reference: "path/to/reference.fa"
+output:
+  dir: "path/to/output"
+  prefix: "sample"
 
 # 性能配置
-threads_per_job: 8                  # 每个任务使用的线程数
-max_parallel_jobs: 3                # 最大并行任务数
-max_memory: 32                      # 最大内存使用量(GB)
+performance:
+  threads_per_job: 4
+  max_parallel_jobs: 2
+  max_memory: "8G"
 
-# 软件路径配置（可选，如果软件在PATH中则不需要）
-software_paths:
-  gatk: /path/to/gatk
-  bwa: /path/to/bwa
-  samtools: /path/to/samtools
-  # ... 其他软件路径
+# 步骤配置
+steps:
+  bwa_map:
+    enabled: true
+    options:
+      - "-t 4"
+  mark_duplicates:
+    enabled: true
+  call_snp:
+    enabled: true
 ```
+
+## 依赖要求
+
+- Python 3.6+
+- GATK 4.x
+- BWA
+- SAMtools
+- Picard
+- VCFtools
+
+## 许可证
+
+MIT License
 
 ## 流程步骤说明
 
@@ -279,10 +259,6 @@ software_paths:
    - 增加`threads_per_job`参数
    - 增加`max_parallel_jobs`参数
    - 使用SSD存储
-
-## 许可证
-
-[许可证名称] - 查看 LICENSE 文件了解详情
 
 ## 高级选项
 
