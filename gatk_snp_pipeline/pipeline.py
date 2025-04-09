@@ -166,27 +166,52 @@ class Pipeline:
         """获取BWA比对命令"""
         bwa = self.config.get_software_path("bwa")
         ref = self.config.get("reference")
+        if not ref:
+            raise ValueError("配置文件中缺少 reference 字段")
+            
         samples_dir = self.config.get("samples_dir")
-        output_dir = self.config.get("output_dir")
+        if not samples_dir:
+            raise ValueError("配置文件中缺少 samples_dir 字段")
+            
+        output_dir = self.config.get("output_dir", ".")
+        if not os.path.exists(output_dir):
+            os.makedirs(output_dir, exist_ok=True)
+            
+        threads = str(self.config.get("threads", 8))
         
-        # 这里需要根据实际情况修改
+        # 获取样本文件列表
+        # 注意: 在shell=True模式下，这里的通配符会由shell展开
+        # 这里假设一个样本只有一个配对的FASTQ文件（如果是双端测序，需要修改）
+        sample_files = f"{samples_dir}/*.fastq.gz"
+        
         return [
             bwa, "mem",
-            "-t", str(self.config.get("threads_per_job")),
+            "-t", threads,
+            "-M",  # 添加-M参数，标记短分割比对
             ref,
-            f"{samples_dir}/*.fastq.gz",
+            sample_files,
             ">", f"{output_dir}/aligned.sam"
         ]
     
     def _get_sort_sam_cmd(self) -> List[str]:
         """获取排序SAM文件命令"""
         samtools = self.config.get_software_path("samtools")
-        input_sam = f"{self.config.get('output_dir')}/aligned.sam"
-        output_bam = f"{self.config.get('output_dir')}/sorted.bam"
+        
+        output_dir = self.config.get("output_dir", ".")
+        if not os.path.exists(output_dir):
+            os.makedirs(output_dir, exist_ok=True)
+            
+        input_sam = f"{output_dir}/aligned.sam"
+        if not os.path.exists(input_sam):
+            raise FileNotFoundError(f"找不到输入文件: {input_sam}")
+            
+        output_bam = f"{output_dir}/sorted.bam"
+        threads = str(self.config.get("threads", 8))
         
         return [
             samtools, "sort",
-            "-@", str(self.config.get("threads_per_job")),
+            "-@", threads,
+            "-m", "2G",  # 每个线程使用2G内存
             "-o", output_bam,
             input_sam
         ]
@@ -194,21 +219,36 @@ class Pipeline:
     def _get_mark_duplicates_cmd(self) -> List[str]:
         """获取标记重复序列命令"""
         gatk = self.config.get_software_path("gatk")
-        input_bam = f"{self.config.get('output_dir')}/sorted.bam"
-        output_bam = f"{self.config.get('output_dir')}/deduplicated.bam"
-        metrics = f"{self.config.get('output_dir')}/metrics.txt"
+        
+        output_dir = self.config.get("output_dir", ".")
+        if not os.path.exists(output_dir):
+            os.makedirs(output_dir, exist_ok=True)
+            
+        input_bam = f"{output_dir}/sorted.bam"
+        if not os.path.exists(input_bam):
+            raise FileNotFoundError(f"找不到输入文件: {input_bam}")
+            
+        output_bam = f"{output_dir}/deduplicated.bam"
+        metrics = f"{output_dir}/duplicate_metrics.txt"
         
         return [
             gatk, "MarkDuplicates",
             "-I", input_bam,
             "-O", output_bam,
-            "-M", metrics
+            "-M", metrics,
+            "--CREATE_INDEX", "true",
+            "--VALIDATION_STRINGENCY", "SILENT",
+            "--REMOVE_DUPLICATES", "false"
         ]
     
     def _get_index_bam_cmd(self) -> List[str]:
         """获取索引BAM文件命令"""
         samtools = self.config.get_software_path("samtools")
-        input_bam = f"{self.config.get('output_dir')}/deduplicated.bam"
+        
+        output_dir = self.config.get("output_dir", ".")
+        input_bam = f"{output_dir}/deduplicated.bam"
+        if not os.path.exists(input_bam):
+            raise FileNotFoundError(f"找不到输入文件: {input_bam}")
         
         return [samtools, "index", input_bam]
     
@@ -216,30 +256,70 @@ class Pipeline:
         """获取HaplotypeCaller命令"""
         gatk = self.config.get_software_path("gatk")
         ref = self.config.get("reference")
-        input_bam = f"{self.config.get('output_dir')}/deduplicated.bam"
-        output_gvcf = f"{self.config.get('output_dir')}/raw_variants.g.vcf"
+        if not ref:
+            raise ValueError("配置文件中缺少 reference 字段")
+            
+        output_dir = self.config.get("output_dir", ".")
+        if not os.path.exists(output_dir):
+            os.makedirs(output_dir, exist_ok=True)
+            
+        input_bam = f"{output_dir}/deduplicated.bam"
+        if not os.path.exists(input_bam):
+            raise FileNotFoundError(f"找不到输入文件: {input_bam}")
+            
+        # 检查BAM索引是否存在
+        bam_index = f"{input_bam}.bai"
+        if not os.path.exists(bam_index):
+            self.logger.warning(f"找不到BAM索引文件: {bam_index}，可能会导致HaplotypeCaller失败")
+            
+        output_gvcf = f"{output_dir}/raw_variants.g.vcf"
+        
+        # 从配置中获取质量参数
+        min_base_quality = self.config.get("gatk", {}).get("min_base_quality", 20)
+        min_allele_fraction = self.config.get("gatk", {}).get("min_allele_fraction", 0.2)
         
         return [
             gatk, "HaplotypeCaller",
             "-R", ref,
             "-I", input_bam,
             "-O", output_gvcf,
-            "-ERC", "GVCF"
+            "-ERC", "GVCF",
+            "--min-base-quality", str(min_base_quality),
+            "--min-pruning", "1",
+            "--standard-min-confidence-threshold-for-calling", "30.0",
+            "--heterozygosity", "0.001",
+            "--heterozygosity-stdev", "0.01",
+            "--min-dangling-branch-length", "4"
         ]
     
     def _get_combine_gvcfs_cmd(self) -> List[str]:
         """获取合并GVCF文件命令"""
         gatk = self.config.get_software_path("gatk")
         ref = self.config.get("reference")
-        input_gvcfs = f"{self.config.get('output_dir')}/*.g.vcf"
-        output_vcf = f"{self.config.get('output_dir')}/combined.vcf"
+        if not ref:
+            raise ValueError("配置文件中缺少 reference 字段")
+            
+        output_dir = self.config.get("output_dir", ".")
+        if not os.path.exists(output_dir):
+            os.makedirs(output_dir, exist_ok=True)
+            
+        # 在shell=True模式下通配符会被正确展开
+        input_gvcfs = f"{output_dir}/*.g.vcf"
+        output_vcf = f"{output_dir}/combined.vcf"
         
-        return [
+        # 在非shell模式下，我们需要手动查找所有的GVCF文件
+        cmd = [
             gatk, "CombineGVCFs",
             "-R", ref,
             "-V", input_gvcfs,
             "-O", output_vcf
         ]
+        
+        # 添加可选参数
+        if self.config.get("gatk", {}).get("convert_to_hemizygous", False):
+            cmd.extend(["--convert-to-hemizygous"])
+            
+        return cmd
     
     def _get_genotype_gvcfs_cmd(self) -> List[str]:
         """获取基因型分型命令"""

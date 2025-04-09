@@ -1,76 +1,113 @@
-# GATK SNP 检测流程
+# GATK SNP Pipeline
 
-这是一个基于 GATK 的 SNP 检测流程工具，用于处理高通量测序数据并检测 SNP。
+一个用于SNP检测和分析的流水线，基于GATK最佳实践开发。
 
 ## 功能特点
 
-- 完整的 GATK 最佳实践流程
-- 支持单样本和多样本分析
-- 自动化的质量控制
-- 详细的日志记录
-- 可配置的分析参数
+- 参考基因组索引创建
+- 使用BWA进行序列比对
+- SAM文件排序
+- 标记重复序列
+- BAM文件索引
+- 变异位点检测 (HaplotypeCaller)
+- GVCF文件合并
+- 基因型分型
+- VCF过滤
+- SNP提取和过滤
+- 生成GWAS分析数据
 
 ## 系统要求
 
-- Linux 操作系统
-- 以下软件需要预先安装：
-  - bwa
-  - samtools
-  - picard
-  - vcftools
-  - fastp
-  - qualimap
-  - java
+- Linux操作系统 (支持Ubuntu 18.04+, CentOS 7+)
+- Python 3.6+
+- 依赖软件：
+  - GATK 4.0+
+  - BWA 0.7.17+
+  - Samtools 1.9+
+  - Picard 2.21.0+
+  - VCFtools 0.1.16+
+  - BCFtools 1.9+
+  - fastp 0.20.0+
+  - QualiMap 2.2.2+
+  - Java 1.8+
 
 ## 安装
 
-1. 从 [Release 页面](https://github.com/craftor18/gatk_callSNP_workflow_package/releases) 下载最新版本的预构建二进制可执行文件
-2. 将可执行文件移动到系统路径中，例如：
-   ```bash
-   sudo mv gatk-snp-pipeline /usr/local/bin/
-   ```
-3. 确保可执行文件具有执行权限：
-   ```bash
-   sudo chmod +x /usr/local/bin/gatk-snp-pipeline
-   ```
-
-## 使用方法
-
-### 1. 检查依赖
+### 方法1：使用预编译二进制文件
 
 ```bash
-gatk-snp-pipeline check-deps
+# 下载最新版本
+wget https://github.com/craftor18/gatk_callSNP_workflow_package/releases/download/v1.0.2/gatk-snp-pipeline-linux-x64
+
+# 添加执行权限
+chmod +x gatk-snp-pipeline-linux-x64
+
+# 移动到PATH路径
+sudo mv gatk-snp-pipeline-linux-x64 /usr/local/bin/
 ```
 
-### 2. 运行分析
+### 方法2：从源码安装
 
 ```bash
-gatk-snp-pipeline run \
-    --input-dir /path/to/input \
-    --output-dir /path/to/output \
-    --reference /path/to/reference.fa \
-    --threads 8
+# 克隆仓库
+git clone https://github.com/craftor18/gatk_callSNP_workflow_package.git
+cd gatk_callSNP_workflow_package
+
+# 安装依赖
+pip install -r requirements.txt
+
+# 安装程序
+pip install .
 ```
 
-### 3. 查看帮助
+## 快速入门
+
+### 检查依赖
 
 ```bash
-gatk-snp-pipeline --help
+gatk-snp-pipeline check-deps --skip-version-check
 ```
 
-## 配置文件
+### 创建配置文件
 
-程序会在以下位置查找配置文件：
+```bash
+# 创建配置文件模板
+gatk-snp-pipeline create-config -o config.yaml
+```
 
-1. 当前目录下的 `config.yaml`
-2. 用户主目录下的 `.gatk-snp-pipeline/config.yaml`
-3. 程序内置的默认配置
+### 编辑配置文件
 
-配置文件示例：
+编辑生成的`config.yaml`文件，设置参考基因组路径、样本路径和其他参数。
+
+### 运行特定步骤
+
+```bash
+# 只运行参考基因组索引步骤
+gatk-snp-pipeline run --config config.yaml --step ref_index
+
+# 运行序列比对步骤
+gatk-snp-pipeline run --config config.yaml --step bwa_map
+```
+
+### 运行完整流程
+
+```bash
+gatk-snp-pipeline run --config config.yaml
+```
+
+## 配置文件说明
+
+以下是配置文件的主要字段：
 
 ```yaml
 # 参考基因组
-reference: /path/to/reference.fa
+reference: /path/to/reference.fasta
+
+# 样本目录
+samples_dir: /path/to/samples
+
+# 输出目录
+output_dir: /path/to/output
 
 # 线程数
 threads: 8
@@ -86,18 +123,64 @@ gatk:
   min_base_quality: 20
 ```
 
-## 输出文件
+### 必需字段
 
-分析完成后，将在输出目录中生成以下文件：
+- `reference`: 参考基因组FASTA文件的路径
+- `samples_dir`: 包含样本FASTQ文件的目录
 
-- `alignment/`: BAM 文件
-- `variants/`: VCF 文件
-- `qc/`: 质量控制报告
-- `logs/`: 运行日志
+### 可选字段
+
+- `output_dir`: 输出文件的目录（默认为当前目录）
+- `threads`: 使用的线程数（默认为8）
+- `quality_control`: 质量控制参数
+- `gatk`: GATK特定参数
+
+## 流程步骤
+
+流水线包括以下步骤：
+
+1. **ref_index**: 参考基因组索引
+   - 创建BWA索引
+   - 创建序列字典
+   - 创建FASTA索引
+
+2. **bwa_map**: 序列比对
+   - 使用BWA mem将FASTQ文件比对到参考基因组
+   - 输出SAM格式
+
+3. **sort_sam**: SAM文件排序
+   - 将SAM文件排序为BAM格式
+
+4. **mark_duplicates**: 标记重复序列
+   - 使用GATK MarkDuplicates标记PCR和光学重复
+
+5. **index_bam**: BAM索引
+   - 创建排序后BAM文件的索引
+
+6. **haplotype_caller**: 变异位点检测
+   - 使用GATK HaplotypeCaller检测变异
+
+7. **combine_gvcfs**: 合并GVCF文件
+   - 合并多个样本的GVCF文件
+
+8. **genotype_gvcfs**: 基因型分型
+   - 对合并的GVCF文件进行基因型分型
+
+9. **vcf_filter**: VCF过滤
+   - 过滤变异位点
+
+10. **select_snp**: 选择SNP
+    - 从VCF中提取SNP
+
+11. **soft_filter_snp**: SNP软过滤
+    - 根据质量应用过滤器
+
+12. **get_gwas_data**: 获取GWAS数据
+    - 准备GWAS分析数据
 
 ## 许可证
 
-MIT
+本项目采用 MIT 许可证。
 
 ## 作者
 
