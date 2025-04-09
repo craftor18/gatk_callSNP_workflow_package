@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 构建可执行程序的脚本
-支持跨平台构建（Linux, macOS）
+只支持 Linux 平台构建
 """
 
 import os
@@ -27,13 +27,9 @@ def get_platform_info():
     system = platform.system().lower()
     machine = platform.machine().lower()
     
-    # 标准化平台名称
-    if system == 'darwin':
-        system = 'darwin'  # macOS
-    elif system == 'linux':
-        system = 'linux'
-    else:
-        raise ValueError(f"不支持的操作系统: {system}")
+    # 只支持 Linux 平台
+    if system != 'linux':
+        raise ValueError(f"只支持 Linux 平台构建，当前平台: {system}")
     
     # 标准化架构名称
     if machine in ['x86_64', 'amd64']:
