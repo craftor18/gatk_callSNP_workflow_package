@@ -27,6 +27,11 @@ jobs:
         retry: 3
         timeout-minutes: 10
     
+    - name: Clean up old build files
+      run: |
+        rm -rf build/
+        rm -rf dist/
+    
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
