@@ -1,4 +1,4 @@
-name: Build Multi-Platform Executables
+name: Build Linux Executable
 
 on:
   push:
@@ -14,21 +14,23 @@ permissions:
 
 jobs:
   build:
-    strategy:
-      matrix:
-        os: [ubuntu-latest, macos-latest]
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-latest
     
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v4
+      uses: actions/checkout@v3
       with:
         fetch-depth: 0
         retry: 3
         timeout-minutes: 10
     
+    - name: Clean up old build files
+      run: |
+        rm -rf build/
+        rm -rf dist/
+    
     - name: Set up Python
-      uses: actions/setup-python@v5
+      uses: actions/setup-python@v4
       with:
         python-version: '3.11'
         cache: 'pip'
@@ -51,14 +53,14 @@ jobs:
     - name: Check and set permissions
       shell: bash
       run: |
-        chmod +x dist/gatk-snp-pipeline-*
+        chmod +x dist/gatk-snp-pipeline-linux-x64
         ls -la dist/
     
     - name: Upload artifact
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v3
       with:
-        name: ${{ matrix.os }}-exe
-        path: dist/gatk-snp-pipeline-*
+        name: linux-exe
+        path: dist/gatk-snp-pipeline-linux-x64
         if-no-files-found: error
 
   release:
@@ -67,16 +69,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: Download all artifacts
-      uses: actions/download-artifact@v4
+      uses: actions/download-artifact@v3
       with:
         path: artifacts
     
     - name: Create Release
-      uses: softprops/action-gh-release@v2
+      uses: softprops/action-gh-release@v1
       with:
-        files: |
-          artifacts/ubuntu-latest-exe/gatk-snp-pipeline-linux-x64
-          artifacts/macos-latest-exe/gatk-snp-pipeline-darwin-x64
+        files: artifacts/linux-exe/gatk-snp-pipeline-linux-x64
         draft: false
         prerelease: false
         generate_release_notes: true
