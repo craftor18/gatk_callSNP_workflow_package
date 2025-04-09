@@ -78,7 +78,7 @@ def main():
         cmd.extend(['--add-data', data])
     
     # 添加主程序入口
-    cmd.append('src/main.py')
+    cmd.append('gatk_snp_pipeline/main.py')
     
     # 打印构建命令
     print(f"Building executable for {platform.system()}...")
