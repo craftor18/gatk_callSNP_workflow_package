@@ -1,4 +1,4 @@
-name: Build Multi-Platform Executables
+name: Build Linux Executable
 
 on:
   push:
@@ -14,10 +14,7 @@ permissions:
 
 jobs:
   build:
-    strategy:
-      matrix:
-        os: [ubuntu-latest, macos-latest]
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-latest
     
     steps:
     - name: Checkout repository
@@ -62,7 +59,7 @@ jobs:
     - name: Upload artifact
       uses: actions/upload-artifact@v3
       with:
-        name: ${{ matrix.os }}-exe
+        name: linux-exe
         path: dist/gatk-snp-pipeline-*
         if-no-files-found: error
 
@@ -80,8 +77,7 @@ jobs:
       uses: softprops/action-gh-release@v1
       with:
         files: |
-          artifacts/ubuntu-latest-exe/gatk-snp-pipeline-linux-x64
-          artifacts/macos-latest-exe/gatk-snp-pipeline-darwin-x64
+          artifacts/linux-exe/gatk-snp-pipeline-linux-x64
         draft: false
         prerelease: false
         generate_release_notes: true
