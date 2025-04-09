@@ -2,10 +2,18 @@ import argparse
 import sys
 import os
 from pathlib import Path
-from .pipeline import Pipeline
-from .config import ConfigManager
-from .dependency_checker import DependencyChecker
-from .logger import Logger
+# 修改导入方式，使用绝对导入替代相对导入
+try:
+    from .pipeline import Pipeline
+    from .config import ConfigManager
+    from .dependency_checker import DependencyChecker
+    from .logger import Logger
+except ImportError:
+    # 在打包为可执行文件后使用绝对导入
+    from gatk_snp_pipeline.pipeline import Pipeline
+    from gatk_snp_pipeline.config import ConfigManager
+    from gatk_snp_pipeline.dependency_checker import DependencyChecker
+    from gatk_snp_pipeline.logger import Logger
 
 def init_config(args):
     """初始化配置文件"""
