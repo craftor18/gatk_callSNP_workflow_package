@@ -99,14 +99,27 @@ class Pipeline:
         
         try:
             cmd = step["command"]()
-            self.logger.info(f"执行命令: {' '.join(cmd)}")
+            cmd_str = ' '.join(cmd)
+            self.logger.info(f"执行命令: {cmd_str}")
             
-            result = subprocess.run(
-                cmd,
-                check=True,
-                capture_output=True,
-                text=True
-            )
+            # 检查命令中是否包含shell操作符
+            if any(op in cmd_str for op in ['&&', '||', '>', '<', '|', ';']):
+                # 使用shell=True执行包含shell操作符的命令
+                result = subprocess.run(
+                    cmd_str,
+                    shell=True,
+                    check=True,
+                    capture_output=True,
+                    text=True
+                )
+            else:
+                # 使用普通方式执行不包含shell操作符的命令
+                result = subprocess.run(
+                    cmd,
+                    check=True,
+                    capture_output=True,
+                    text=True
+                )
             
             self.logger.info(f"步骤 {step_name} 执行成功")
             return True
