@@ -1,167 +1,157 @@
 # GATK SNP Calling Pipeline
 
-基于Python实现的GATK SNP Calling流程，提供从参考基因组索引到SNP过滤的完整流程。
+一个基于Python的GATK SNP Calling流程自动化工具，支持Linux和macOS平台。
+
+## 项目结构
+
+```
+gatk_callSNP_workflow_package/
+├── .github/                    # GitHub Actions工作流配置
+│   └── workflows/
+│       └── build.yml          # 自动构建配置
+├── gatk_snp_pipeline/         # 主程序包
+│   ├── __init__.py
+│   ├── cli.py                # 命令行接口
+│   ├── pipeline.py           # 流程控制
+│   ├── config.py             # 配置管理
+│   ├── dependency_checker.py # 依赖检查
+│   └── logger.py             # 日志管理
+├── src/                      # 源代码目录
+│   └── steps/               # 流程步骤实现
+├── build.py                 # 构建脚本
+├── setup.py                # 安装配置
+├── requirements.txt        # 依赖列表
+├── README.md              # 项目说明
+└── DEPENDENCY_TROUBLESHOOTING.md  # 依赖问题排查指南
+```
 
 ## 环境要求
 
-### 系统要求
-
-- 操作系统：Windows/Linux/macOS
-- 内存：建议至少32GB
-- 存储：根据数据量确定，建议至少100GB可用空间
-- Java：Java 8或更高版本
-
-### Python依赖
-
-- Python >=3.6+
-- pyyaml>=6.0
-- setuptools>=45.0.0
-- wheel>=0.34.0
-
-### 生物信息学软件依赖
-
-#### 可以通过conda/mamba安装的软件
-
-```bash
-mamba install -c bioconda:
-- gatk4 (>=4.0.0.0)
-- bwa (>=0.7.17)
-- samtools (>=1.10)
-- picard (>=2.27.0)
-- vcftools (>=0.1.16)
-- bcftools
-- fastp (>=0.20.0)
-- qualimap (>=2.2.2)
-- multiqc (>=1.9)
-```
-
-#### 需要手动安装的软件
-
-- bwa-mem2 (https://github.com/bwa-mem2/bwa-mem2)
+- Python 3.11+
+- Linux/macOS操作系统
+- 以下软件需要预先安装并添加到PATH：
+  - GATK
+  - BWA
+  - samtools
+  - bcftools
+  - vcftools
 
 ## 安装方法
 
-### 方法一：直接使用可执行程序（推荐）
+### 1. pip安装（推荐）
 
-1. 从[发布页面](https://github.com/yourusername/gatk-snp-pipeline/releases)下载对应平台的可执行程序
-2. 将可执行程序添加到系统PATH中
-3. 在命令行中直接使用`gatk-snp-pipeline`命令
-
-### 方法二：从源码构建可执行程序
-
-1. 克隆仓库：
 ```bash
-git clone https://github.com/yourusername/gatk-snp-pipeline.git
-cd gatk-snp-pipeline
+pip install gatk-snp-pipeline
 ```
 
-2. 安装依赖：
-```bash
-pip install -r requirements.txt
-```
-
-3. 构建可执行程序：
-```bash
-python build.py
-```
-
-4. 构建完成后，可执行程序将位于`dist`目录下
-
-### 方法三：使用pip安装（开发模式）
+### 2. 源码安装
 
 ```bash
+git clone https://github.com/craftor18/gatk_callSNP_workflow_package.git
+cd gatk_callSNP_workflow_package
 pip install -e .
+```
+
+### 3. conda安装
+
+```bash
+conda install -c bioconda gatk-snp-pipeline
 ```
 
 ## 使用方法
 
-### 命令行接口
+### 1. 命令行接口
 
 ```bash
-# 检查依赖
-gatk-snp-pipeline check-deps [--skip-version-check]
-
 # 初始化配置文件
 gatk-snp-pipeline init --config config.yaml
 
-# 运行流程
-gatk-snp-pipeline run --config config.yaml [--step STEP] [--from-step STEP] [--skip-deps] [--skip-version-check]
-```
-
-### Python API
-
-```python
-from gatk_snp_pipeline import Pipeline
-
-# 创建流程实例
-pipeline = Pipeline(config_path="config.yaml")
+# 检查依赖
+gatk-snp-pipeline check-deps
 
 # 运行完整流程
-pipeline.run_all()
+gatk-snp-pipeline run --config config.yaml
 
 # 运行特定步骤
-pipeline.run_step("bwa_map")
+gatk-snp-pipeline run --config config.yaml --step bwa_map
 
 # 从特定步骤开始运行
+gatk-snp-pipeline run --config config.yaml --from-step mark_duplicates
+```
+
+### 2. Python脚本
+
+```python
+from gatk_snp_pipeline import Pipeline, ConfigManager
+
+# 加载配置
+config = ConfigManager("config.yaml")
+
+# 创建并运行流程
+pipeline = Pipeline(config)
+pipeline.run_all()
+```
+
+### 3. Jupyter Notebook
+
+```python
+from gatk_snp_pipeline import Pipeline, ConfigManager
+
+# 加载配置
+config = ConfigManager("config.yaml")
+
+# 创建流程实例
+pipeline = Pipeline(config)
+
+# 运行单个步骤
+pipeline.run_step("bwa_map")
+
+# 运行从特定步骤开始
 pipeline.run_from_step("mark_duplicates")
 ```
 
-### Jupyter Notebook
+## 配置文件说明
 
-```python
-from gatk_snp_pipeline import Pipeline
-import yaml
-
-# 加载配置
-with open("config.yaml") as f:
-    config = yaml.safe_load(f)
-
-# 创建流程实例
-pipeline = Pipeline(config=config)
-
-# 运行流程
-pipeline.run_all()
-```
-
-## 配置说明
-
-配置文件示例（config.yaml）：
+配置文件使用YAML格式，包含以下主要部分：
 
 ```yaml
-# 输入输出配置
-input:
-  fastq_dir: "path/to/fastq"
-  reference: "path/to/reference.fa"
-output:
-  dir: "path/to/output"
-  prefix: "sample"
+# 样本数据路径
+samples:
+  - path: /path/to/sample1.fastq
+    name: sample1
+  - path: /path/to/sample2.fastq
+    name: sample2
 
-# 性能配置
+# 输出目录
+output_dir: /path/to/output
+
+# 参考基因组
+reference:
+  fasta: /path/to/reference.fasta
+  index: /path/to/reference.fasta.fai
+
+# 性能设置
 performance:
   threads_per_job: 4
   max_parallel_jobs: 2
-  max_memory: "8G"
+  max_memory: 8G
 
-# 步骤配置
-steps:
-  bwa_map:
-    enabled: true
-    options:
-      - "-t 4"
-  mark_duplicates:
-    enabled: true
-  call_snp:
-    enabled: true
+# 任务优先级映射
+priority_map:
+  bwa_map: 1
+  sort_sam: 2
+  mark_duplicates: 3
+  base_recalibrator: 4
+  apply_bqsr: 5
+  haplotype_caller: 6
+  genotype_gvcfs: 7
+  hard_filter_snps: 8
+  soft_filter_snps: 9
 ```
 
-## 依赖要求
+## 依赖问题排查
 
-- Python 3.6+
-- GATK 4.x
-- BWA
-- SAMtools
-- Picard
-- VCFtools
+如果遇到依赖问题，请参考 [DEPENDENCY_TROUBLESHOOTING.md](DEPENDENCY_TROUBLESHOOTING.md) 文件。
 
 ## 许可证
 
@@ -239,15 +229,11 @@ MIT License
 
 1. **依赖检查失败**
    - 确保所有软件都已正确安装
-   - 检查软件版本是否满足要求
    - 确保软件路径已添加到系统PATH
    - 如果依赖检测显示错误但软件已正确安装，可以手动验证：
      ```bash
      # 检查软件是否存在
      which software_name
-     
-     # 检查软件版本
-     software_name --version
      ```
 
 2. **内存不足**
@@ -264,20 +250,13 @@ MIT License
 
 ### 依赖检查控制
 
-GATK SNP Calling Pipeline提供了多种选项来控制依赖检查行为：
+GATK SNP Calling Pipeline提供了选项来控制依赖检查行为：
 
 - `--skip-deps`: 完全跳过依赖检查，直接运行流程
-- `--skip-version-check`: 跳过版本检查，只检查软件是否存在，在conda环境中特别有用
 
 例如：
 
 ```bash
-# 跳过版本检查
-gatk-snp-pipeline check-deps --skip-version-check
-
-# 运行流程并跳过版本检查
-gatk-snp-pipeline run --config config.yaml --skip-version-check
-
 # 完全跳过依赖检查
 gatk-snp-pipeline run --config config.yaml --skip-deps
 ```
