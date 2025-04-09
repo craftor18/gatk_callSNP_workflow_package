@@ -132,7 +132,10 @@ class Pipeline:
     
     def _get_ref_index_cmd(self) -> List[str]:
         """获取参考基因组索引命令"""
-        ref = self.config.get("reference_genome")
+        ref = self.config.get("reference")
+        if not ref:
+            raise ValueError("配置文件中缺少 reference 字段")
+            
         bwa = self.config.get_software_path("bwa")
         gatk = self.config.get_software_path("gatk")
         samtools = self.config.get_software_path("samtools")
