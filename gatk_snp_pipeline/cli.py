@@ -29,13 +29,8 @@ def init_config(args):
 def check_dependencies(args):
     """检查依赖"""
     print("开始检查依赖...")
-    # 确保skip_version_check参数存在
-    skip_version_check = getattr(args, 'skip_version_check', False)
-    if skip_version_check:
-        print("已启用版本检查跳过，仅检查软件是否存在")
-        
-    # 创建依赖检查器
-    checker = DependencyChecker(skip_version_check=skip_version_check)
+    # 创建依赖检查器，默认跳过版本检查
+    checker = DependencyChecker(skip_version_check=True)
     checker.check_all()
     
     if checker.has_errors():
@@ -48,8 +43,6 @@ def check_dependencies(args):
 
 def run_pipeline(args):
     """运行流程"""
-    # 确保skip_version_check参数存在
-    skip_version_check = getattr(args, 'skip_version_check', False)
     # 确保skip_deps参数存在
     skip_deps = getattr(args, 'skip_deps', False)
     
@@ -72,10 +65,7 @@ def run_pipeline(args):
     # 检查依赖（如果指定了--skip-deps则跳过）
     if not skip_deps:
         logger.info("检查依赖...")
-        if skip_version_check:
-            logger.info("已启用版本检查跳过，仅检查软件是否存在")
-            
-        checker = DependencyChecker(skip_version_check=skip_version_check)
+        checker = DependencyChecker(skip_version_check=True)
         checker.check_all()
         if checker.has_errors():
             logger.error("发现依赖问题，请先解决：")
@@ -84,8 +74,7 @@ def run_pipeline(args):
             print("发现依赖问题，请先解决：")
             for error in checker.get_errors():
                 print(f"- {error}")
-            print("\n要跳过版本检查，请使用 --skip-version-check 选项")
-            print("要完全跳过依赖检查，请使用 --skip-deps 选项")
+            print("\n要跳过依赖检查，请使用 --skip-deps 选项")
             print("更多信息请参阅 DEPENDENCY_TROUBLESHOOTING.md")
             sys.exit(1)
         logger.info("依赖检查通过")
@@ -152,11 +141,6 @@ def main():
         help="检查依赖",
         description="检查所有必需的软件依赖是否已安装"
     )
-    check_parser.add_argument(
-        "--skip-version-check",
-        action="store_true",
-        help="跳过版本检查，只检查软件是否存在"
-    )
     check_parser.set_defaults(func=check_dependencies)
     
     # run 命令
@@ -182,11 +166,6 @@ def main():
         "--skip-deps",
         action="store_true",
         help="跳过依赖检查"
-    )
-    run_parser.add_argument(
-        "--skip-version-check",
-        action="store_true",
-        help="跳过版本检查，只检查软件是否存在"
     )
     run_parser.set_defaults(func=run_pipeline)
     
