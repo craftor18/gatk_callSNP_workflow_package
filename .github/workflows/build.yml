@@ -18,11 +18,9 @@ jobs:
     
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v3
+      uses: actions/checkout@v2
       with:
         fetch-depth: 0
-        retry: 3
-        timeout-minutes: 10
     
     - name: Clean up old build files
       run: |
@@ -30,7 +28,7 @@ jobs:
         rm -rf dist/
     
     - name: Set up Python
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v2
       with:
         python-version: '3.11'
         cache: 'pip'
@@ -57,7 +55,7 @@ jobs:
         ls -la dist/
     
     - name: Upload artifact
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v2
       with:
         name: linux-exe
         path: dist/gatk-snp-pipeline-*
@@ -69,12 +67,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: Download all artifacts
-      uses: actions/download-artifact@v3
+      uses: actions/download-artifact@v2
       with:
         path: artifacts
     
     - name: Create Release
-      uses: softprops/action-gh-release@v1
+      uses: softprops/action-gh-release@v0.1.15
       with:
         files: |
           artifacts/linux-exe/gatk-snp-pipeline-linux-x64
