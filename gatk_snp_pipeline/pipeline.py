@@ -152,7 +152,7 @@ class Pipeline:
     def _get_bwa_map_cmd(self) -> List[str]:
         """获取BWA比对命令"""
         bwa = self.config.get_software_path("bwa")
-        ref = self.config.get("reference_genome")
+        ref = self.config.get("reference")
         samples_dir = self.config.get("samples_dir")
         output_dir = self.config.get("output_dir")
         
@@ -202,7 +202,7 @@ class Pipeline:
     def _get_haplotype_caller_cmd(self) -> List[str]:
         """获取HaplotypeCaller命令"""
         gatk = self.config.get_software_path("gatk")
-        ref = self.config.get("reference_genome")
+        ref = self.config.get("reference")
         input_bam = f"{self.config.get('output_dir')}/deduplicated.bam"
         output_gvcf = f"{self.config.get('output_dir')}/raw_variants.g.vcf"
         
@@ -217,7 +217,7 @@ class Pipeline:
     def _get_combine_gvcfs_cmd(self) -> List[str]:
         """获取合并GVCF文件命令"""
         gatk = self.config.get_software_path("gatk")
-        ref = self.config.get("reference_genome")
+        ref = self.config.get("reference")
         input_gvcfs = f"{self.config.get('output_dir')}/*.g.vcf"
         output_vcf = f"{self.config.get('output_dir')}/combined.vcf"
         
@@ -231,7 +231,7 @@ class Pipeline:
     def _get_genotype_gvcfs_cmd(self) -> List[str]:
         """获取基因型分型命令"""
         gatk = self.config.get_software_path("gatk")
-        ref = self.config.get("reference_genome")
+        ref = self.config.get("reference")
         input_vcf = f"{self.config.get('output_dir')}/combined.vcf"
         output_vcf = f"{self.config.get('output_dir')}/genotyped.vcf"
         
