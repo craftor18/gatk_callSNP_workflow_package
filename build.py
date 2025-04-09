@@ -22,80 +22,83 @@ def clean_build_dirs():
     for spec_file in Path('.').glob('*.spec'):
         spec_file.unlink()
 
-def get_platform_info():
-    """获取平台信息"""
+def get_platform_specific_params():
+    """获取平台特定的构建参数"""
     system = platform.system().lower()
-    machine = platform.machine().lower()
-    
-    # 标准化平台名称
-    if system == 'darwin':
-        system = 'darwin'  # macOS
-    elif system == 'linux':
-        system = 'linux'
+    if system == 'linux':
+        return {
+            'name': 'gatk-snp-pipeline-linux-x64',
+            'icon': None,
+            'console': True,
+            'onefile': True,
+            'add_data': []
+        }
+    elif system == 'darwin':
+        return {
+            'name': 'gatk-snp-pipeline-darwin-x64',
+            'icon': None,
+            'console': True,
+            'onefile': True,
+            'add_data': []
+        }
     else:
-        raise ValueError(f"不支持的操作系统: {system}")
-    
-    # 标准化架构名称
-    if machine in ['x86_64', 'amd64']:
-        machine = 'x64'
-    elif machine in ['aarch64', 'arm64']:
-        machine = 'arm64'
-    else:
-        raise ValueError(f"不支持的架构: {machine}")
-    
-    return system, machine
-
-def build_executable():
-    """构建可执行程序"""
-    # 获取平台信息
-    system, machine = get_platform_info()
-    print(f"开始为 {system}-{machine} 构建可执行程序...")
-    
-    # 清理旧的构建文件
-    clean_build_dirs()
-    
-    # 构建命令
-    exe_name = f"gatk-snp-pipeline-{system}-{machine}"
-    
-    # 构建命令
-    cmd = [
-        "pyinstaller",
-        "--clean",
-        "--onefile",
-        "--name", exe_name,
-        "--add-data", "README.md:.",
-        "--add-data", "DEPENDENCY_TROUBLESHOOTING.md:.",
-        "gatk_snp_pipeline/cli.py"
-    ]
-    
-    # 执行构建
-    try:
-        subprocess.check_call(cmd)
-        print("\n构建完成！")
-        
-        # 显示构建结果
-        dist_dir = Path("dist")
-        if dist_dir.exists():
-            print("\n可执行程序位于：")
-            for file in dist_dir.glob("gatk-snp-pipeline-*"):
-                print(f"  {file}")
-                
-            # 显示文件大小
-            exe_path = dist_dir / exe_name
-            if exe_path.exists():
-                size_mb = exe_path.stat().st_size / (1024 * 1024)
-                print(f"\n文件大小: {size_mb:.1f} MB")
-                
-                # 设置可执行权限
-                os.chmod(exe_path, 0o755)
-                print(f"已设置可执行权限: {exe_path}")
-    except subprocess.CalledProcessError as e:
-        print(f"\n构建失败: {e}")
-        sys.exit(1)
+        raise ValueError(f"Unsupported platform: {system}")
 
 def main():
-    """主函数"""
-    build_executable()
+    # 获取平台特定的参数
+    params = get_platform_specific_params()
+    
+    # 确保dist目录存在
+    dist_dir = Path('dist')
+    dist_dir.mkdir(exist_ok=True)
+    
+    # 构建PyInstaller命令
+    cmd = [
+        'pyinstaller',
+        '--name', params['name'],
+        '--distpath', str(dist_dir),
+        '--workpath', 'build',
+        '--specpath', 'build',
+        '--clean',
+        '--noconfirm',
+    ]
+    
+    if params['console']:
+        cmd.append('--console')
+    else:
+        cmd.append('--windowed')
+    
+    if params['onefile']:
+        cmd.append('--onefile')
+    
+    if params['icon']:
+        cmd.extend(['--icon', params['icon']])
+    
+    for data in params['add_data']:
+        cmd.extend(['--add-data', data])
+    
+    # 添加主程序入口
+    cmd.append('src/main.py')
+    
+    # 打印构建命令
+    print(f"Building executable for {platform.system()}...")
+    print(f"Command: {' '.join(cmd)}")
+    
+    # 执行构建命令
+    try:
+        subprocess.run(cmd, check=True)
+        print("Build completed successfully!")
+        
+        # 设置可执行权限（Linux和macOS）
+        if platform.system() in ['Linux', 'Darwin']:
+            exe_path = dist_dir / params['name']
+            if exe_path.exists():
+                exe_path.chmod(0o755)
+                print(f"Set executable permissions for {exe_path}")
+        
+    except subprocess.CalledProcessError as e:
+        print(f"Build failed with error: {e}")
+        sys.exit(1)
 
 if __name__ == '__main__':
     main() 
