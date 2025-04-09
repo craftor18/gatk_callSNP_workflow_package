@@ -63,7 +63,7 @@ class ConfigManager:
     
     def get_log_path(self) -> Path:
         """获取日志文件路径"""
-        output_dir = Path(self.get("output_dir"))
+        output_dir = Path(self.get("output_dir", "."))
         return output_dir / "pipeline.log"
     
     def get_software_path(self, software: str) -> str:
