@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 构建可执行程序的脚本
-支持跨平台构建（Linux, macOS）
+只支持 Linux 平台构建
 """
 
 import os
@@ -33,18 +33,16 @@ def get_platform_specific_params():
             'onefile': True,
             'add_data': []
         }
-    elif system == 'darwin':
-        return {
-            'name': 'gatk-snp-pipeline-darwin-x64',
-            'icon': None,
-            'console': True,
-            'onefile': True,
-            'add_data': []
-        }
     else:
-        raise ValueError(f"Unsupported platform: {system}")
+        print("错误：只支持在 Linux 平台上构建！")
+        sys.exit(1)
 
 def main():
+    # 检查平台
+    if platform.system().lower() != 'linux':
+        print("错误：只支持在 Linux 平台上构建！")
+        sys.exit(1)
+    
     # 获取平台特定的参数
     params = get_platform_specific_params()
     
@@ -81,7 +79,7 @@ def main():
     cmd.append('gatk_snp_pipeline/main.py')
     
     # 打印构建命令
-    print(f"Building executable for {platform.system()}...")
+    print(f"Building executable for Linux...")
     print(f"Command: {' '.join(cmd)}")
     
     # 执行构建命令
@@ -89,12 +87,11 @@ def main():
         subprocess.run(cmd, check=True)
         print("Build completed successfully!")
         
-        # 设置可执行权限（Linux和macOS）
-        if platform.system() in ['Linux', 'Darwin']:
-            exe_path = dist_dir / params['name']
-            if exe_path.exists():
-                exe_path.chmod(0o755)
-                print(f"Set executable permissions for {exe_path}")
+        # 设置可执行权限
+        exe_path = dist_dir / params['name']
+        if exe_path.exists():
+            exe_path.chmod(0o755)
+            print(f"Set executable permissions for {exe_path}")
         
     except subprocess.CalledProcessError as e:
         print(f"Build failed with error: {e}")
