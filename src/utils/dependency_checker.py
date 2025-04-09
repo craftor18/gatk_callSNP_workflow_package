@@ -9,25 +9,21 @@ from .cmd_utils import CommandExecutor
 class DependencyChecker:
     """依赖检查器"""
     
-    def __init__(self, config, skip_version_check=False):
+    def __init__(self, config):
         self.config = config
         self.logger = logging.getLogger(__name__)
         self.cmd_executor = CommandExecutor()
-        self.skip_version_check = skip_version_check
         
-        # 软件及其最低版本要求
-        self.required_software = {
-            "samtools": "1.10",
-            "picard": "2.27.0",
-            "vcftools": "0.1.16",
-            "gatk": "4.2.0",
-            "bcftools": "1.10",
-            "fastp": "0.20.0",
-            "qualimap": "2.2.2",
-            "multiqc": "1.9",
-            "bwa": "0.7.17",
-            "java": "1.8"
-        }
+        # 需要检查的软件列表
+        self.required_software = [
+            "bwa",
+            "samtools",
+            "picard",
+            "vcftools",
+            "fastp",
+            "qualimap",
+            "java"
+        ]
         
         # 检测是否在Conda环境中
         self.in_conda = self._is_in_conda()
@@ -40,26 +36,11 @@ class DependencyChecker:
         """检查所有依赖"""
         issues = []
         
-        if self.in_conda and self.skip_version_check:
-            self.logger.info("检测到Conda环境，且启用了skip_version_check，仅检查软件是否存在")
-            for software in self.required_software:
-                # 检查软件是否安装
-                software_path = self._check_software_exists(software)
-                if not software_path:
-                    issues.append(f"未找到 {software}，请安装 {software} {self.required_software[software]} 或更高版本")
-        else:
-            for software, min_version in self.required_software.items():
-                # 检查软件是否安装
-                software_path = self._check_software_exists(software)
-                if not software_path:
-                    issues.append(f"未找到 {software}，请安装 {software} {min_version} 或更高版本")
-                    continue
-                    
-                # 检查软件版本
-                if not self.skip_version_check:
-                    version = self._check_software_version(software)
-                    if version == "0.0.0" or not self._is_version_sufficient(version, min_version):
-                        issues.append(f"{software} 版本 {version} 低于要求的最低版本 {min_version}")
+        for software in self.required_software:
+            # 只检查软件是否安装
+            software_path = self._check_software_exists(software)
+            if not software_path:
+                issues.append(f"未找到 {software}，请安装 {software}")
         
         return len(issues) == 0, issues
     
@@ -73,17 +54,20 @@ class DependencyChecker:
             软件路径或None
         """
         try:
-            # 使用CommandExecutor.which()检查软件是否存在
-            path = self.cmd_executor.which(software)
-            if path:
-                self.logger.debug(f"找到 {software}: {path}")
-                return path
+            # 使用which命令检查软件是否存在
+            result = self.cmd_executor.run_command(f"which {software}", check=False)
+            if result.returncode == 0 and result.stdout:
+                return result.stdout.strip()
                 
             # 特殊处理picard和gatk
-            if software == "picard" and self.cmd_executor.which("picard.jar"):
-                return self.cmd_executor.which("picard.jar")
-            elif software == "gatk" and self.cmd_executor.which("gatk.jar"):
-                return self.cmd_executor.which("gatk.jar")
+            if software == "picard":
+                result = self.cmd_executor.run_command("which picard.jar", check=False)
+                if result.returncode == 0 and result.stdout:
+                    return result.stdout.strip()
+            elif software == "gatk":
+                result = self.cmd_executor.run_command("which gatk.jar", check=False)
+                if result.returncode == 0 and result.stdout:
+                    return result.stdout.strip()
                 
             return None
         except Exception as e:
@@ -113,6 +97,10 @@ class DependencyChecker:
                 
             # 解析版本信息
             version_output = result.stdout if result.stdout else result.stderr
+            if not version_output:
+                self.logger.warning(f"获取 {software} 版本时没有输出")
+                return "0.0.0"
+                
             version = self._parse_version(software, version_output)
             self.logger.debug(f"{software} 版本: {version}")
             return version
@@ -120,29 +108,26 @@ class DependencyChecker:
             self.logger.error(f"获取 {software} 版本时出错: {str(e)}")
             return "0.0.0"
     
-    def _get_version_command(self, software: str) -> str:
-        """获取检查版本的命令
+    def _get_version_command(self, software: str) -> Optional[str]:
+        """获取软件版本命令
         
         Args:
             software: 软件名称
             
         Returns:
-            命令字符串
+            版本命令字符串
         """
         version_commands = {
-            "samtools": "samtools --version",
-            "picard": "java -jar $(which picard.jar 2>/dev/null || echo $(which picard)) --version 2>&1",
-            "vcftools": "vcftools --version",
-            "gatk": "gatk --version",
-            "bcftools": "bcftools --version",
+            "bwa": "bwa 2>&1 | head -n 3 | grep Version",
+            "samtools": "samtools --version | head -n 1",
+            "picard": "java -jar $(which picard.jar) --version 2>&1",
+            "gatk": "java -jar $(which gatk.jar) --version 2>&1",
+            "vcftools": "vcftools --version 2>&1",
             "fastp": "fastp --version 2>&1",
             "qualimap": "qualimap --version 2>&1",
-            "multiqc": "multiqc --version",
-            "bwa": "bwa 2>&1 | head -n 1",
             "java": "java -version 2>&1"
         }
-        
-        return version_commands.get(software, f"{software} --version")
+        return version_commands.get(software)
     
     def _parse_version(self, software: str, version_output: str) -> str:
         """从输出中解析版本号
