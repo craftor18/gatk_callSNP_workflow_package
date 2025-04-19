@@ -164,11 +164,21 @@ class Pipeline:
         
         try:
             cmd = step["command"]()
-            cmd_str = ' '.join(cmd)
+            cmd_str = ' '.join(cmd) if isinstance(cmd, list) else cmd[0]
             self.logger.info(f"执行命令: {cmd_str}")
             
+            # 处理单元素字符串列表的情况（如_get_combine_gvcfs_cmd返回的格式）
+            if len(cmd) == 1 and isinstance(cmd[0], str):
+                # 使用shell=True执行完整命令字符串
+                result = subprocess.run(
+                    cmd[0],
+                    shell=True,
+                    check=True,
+                    capture_output=True,
+                    text=True
+                )
             # 检查命令中是否包含shell操作符
-            if any(op in cmd_str for op in ['&&', '||', '>', '<', '|', ';']):
+            elif any(op in cmd_str for op in ['&&', '||', '>', '<', '|', ';']):
                 # 使用shell=True执行包含shell操作符的命令
                 result = subprocess.run(
                     cmd_str,
