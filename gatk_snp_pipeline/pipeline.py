@@ -776,6 +776,9 @@ class Pipeline:
     
     def _get_gwas_data_cmd(self) -> List[str]:
         """获取GWAS数据命令"""
+        # 明确记录警告信息：bcftools query 不支持 --threads 选项
+        self.logger.warning("注意: bcftools query 命令不支持 --threads 选项，确保命令执行时不会添加此参数")
+        
         bcftools = self.config.get_software_path("bcftools")
         output_dir = self.config.get("output_dir", ".")
         
@@ -815,13 +818,8 @@ class Pipeline:
         
         output_file = f"{output_dir}/gwas_data.txt"
         
-        # bcftools query命令不支持--threads参数
-        cmd = [
-            bcftools, "query",
-            "-f", "%CHROM\\t%POS\\t%REF\\t%ALT[\\t%GT]\\n",
-            input_vcf,
-            ">", output_file
-        ]
+        # 手动构建命令字符串，确保不包含 --threads 选项
+        cmd_str = f"{bcftools} query -f \"%CHROM\\t%POS\\t%REF\\t%ALT[\\t%GT]\\n\" {input_vcf} > {output_file}"
         
         # 返回字符串列表
-        return [' '.join(cmd)] 
+        return [cmd_str] 
