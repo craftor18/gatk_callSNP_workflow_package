@@ -88,8 +88,18 @@ class ConfigManager:
             日志文件路径
         """
         log_dir = self.get("log_dir", "logs")
+        # 确保日志目录存在
         os.makedirs(log_dir, exist_ok=True)
-        return os.path.join(log_dir, "gatk_snp_pipeline.log")
+        
+        # 创建完整的日志文件路径
+        log_path = os.path.join(log_dir, "gatk_snp_pipeline.log")
+        
+        # 确保日志文件的父目录存在
+        log_file_dir = os.path.dirname(log_path)
+        if log_file_dir:
+            os.makedirs(log_file_dir, exist_ok=True)
+            
+        return log_path
     
     def get_software_path(self, software_name: str) -> str:
         """获取软件路径
