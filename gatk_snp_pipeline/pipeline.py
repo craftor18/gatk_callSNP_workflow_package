@@ -757,24 +757,18 @@ class Pipeline:
         
         output_prefix = f"{output_dir}/soft_filtered_snps"
         
-        # 设置线程数
-        threads = str(self.config.get("threads", 8))
-        
         # 对于测试数据使用更宽松的过滤条件
-        # --max-missing: 允许的最小非缺失数据比例（0-1），设置为0.5表示每个位点至少有50%的样本有基因型
+        # --max-missing: 允许的最小非缺失数据比例（0-1），设置为0.3表示每个位点至少有30%的样本有基因型
         # --maf: 最小等位基因频率，设置为0.01表示保留至少有1%频率的变异
-        # --geno: 每个SNP允许的最大缺失率，设置为0.7表示允许最多70%的样本在该位点缺失
-        # 小型测试数据集通常需要这些更宽松的参数
+        # 注意：此版本的vcftools不支持--threads和--geno选项
         cmd = [
             vcftools,
             "--vcf", input_vcf,
             "--max-missing", "0.3",   # 允许最多70%的缺失率
             "--maf", "0.01",         # 非常宽松的最小等位基因频率
-            # 省略--geno选项，因为与--max-missing功能重叠，并可能导致冲突
             "--recode",
             "--recode-INFO-all",
-            "--out", output_prefix,
-            "--threads", threads
+            "--out", output_prefix
         ]
         
         # 返回字符串列表格式
