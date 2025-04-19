@@ -22,9 +22,10 @@ def gc_biased_base(gc_content: float = 0.5) -> str:
 class TestDataGenerator:
     """测试数据生成器"""
     
-    def __init__(self, output_dir: str, logger: Optional[Logger] = None):
+    def __init__(self, output_dir: str, logger: Optional[Logger] = None, sequencing_type: str = "single"):
         self.output_dir = Path(output_dir)
         self.logger = logger
+        self.sequencing_type = sequencing_type  # 测序类型: "single"(单端) 或 "paired"(双端)
         
         # 测试数据参数 - 改进以更接近真实数据
         self.reference_length = 50000    # 参考基因组长度增加到50kb
@@ -133,55 +134,103 @@ class TestDataGenerator:
             total_ref_length = sum(len(seq) for seq in reference_sequences.values())
             reads_count = (total_ref_length * self.coverage) // self.read_length
             
-            # 样本文件路径
-            sample_path = self.samples_dir / f"{sample_name}.fastq.gz"
-            
             # 为每个样本生成固定的变异位点，确保样本之间的差异
             sample_variants = self._generate_sample_variants(reference_sequences, sample_idx)
             
-            # 生成FASTQ数据
-            with gzip.open(sample_path, 'wt') as f:
-                for read_idx in range(reads_count):
-                    # 随机选择一条染色体
-                    chrom = random.choice(list(reference_sequences.keys()))
-                    chrom_seq = reference_sequences[chrom]
-                    
-                    # 随机选择起始位置，考虑片段大小
-                    fragment_size = random.randint(300, 500)
-                    start_pos = random.randint(0, max(0, len(chrom_seq) - fragment_size))
-                    
-                    # 应用预定义的样本变异到片段序列
-                    fragment_seq = chrom_seq[start_pos:start_pos + fragment_size]
-                    modified_fragment = self._apply_variants(chrom, start_pos, fragment_seq, sample_variants)
-                    
-                    # 从片段中提取正向和反向读数
-                    forward_read = modified_fragment[:min(self.read_length, len(modified_fragment))]
-                    reverse_start = max(0, len(modified_fragment) - self.read_length)
-                    reverse_read = self._reverse_complement(modified_fragment[reverse_start:])
-                    
-                    # 确保读数长度足够
-                    if len(forward_read) < self.read_length:
-                        forward_read += ''.join(random_base() for _ in range(self.read_length - len(forward_read)))
-                    if len(reverse_read) < self.read_length:
-                        reverse_read += ''.join(random_base() for _ in range(self.read_length - len(reverse_read)))
-                    
-                    # 添加测序错误
-                    forward_read, forward_qual = self._add_sequencing_errors(forward_read)
-                    reverse_read, reverse_qual = self._add_sequencing_errors(reverse_read)
-                    
-                    # 写入正向读数
-                    f.write(f"@{sample_name}_read_{read_idx*2}\n")
-                    f.write(f"{forward_read}\n")
-                    f.write(f"+\n")
-                    f.write(f"{forward_qual}\n")
-                    
-                    # 写入反向读数
-                    f.write(f"@{sample_name}_read_{read_idx*2+1}\n")
-                    f.write(f"{reverse_read}\n")
-                    f.write(f"+\n")
-                    f.write(f"{reverse_qual}\n")
+            if self.sequencing_type == "paired":
+                # 双端测序：生成R1和R2两个FASTQ文件
+                self._generate_paired_end_sample(sample_name, reads_count, reference_sequences, sample_variants)
+            else:
+                # 单端测序：生成单个FASTQ文件
+                self._generate_single_end_sample(sample_name, reads_count, reference_sequences, sample_variants)
             
-            self.log(f"样本 {sample_name} 生成完成: {sample_path}")
+            self.log(f"样本 {sample_name} 生成完成")
+    
+    def _generate_single_end_sample(self, sample_name, reads_count, reference_sequences, sample_variants):
+        """生成单端测序样本数据"""
+        # 样本文件路径
+        sample_path = self.samples_dir / f"{sample_name}.fastq.gz"
+        
+        # 生成FASTQ数据
+        with gzip.open(sample_path, 'wt') as f:
+            for read_idx in range(reads_count):
+                # 随机选择一条染色体
+                chrom = random.choice(list(reference_sequences.keys()))
+                chrom_seq = reference_sequences[chrom]
+                
+                # 随机选择起始位置
+                start_pos = random.randint(0, max(0, len(chrom_seq) - self.read_length))
+                
+                # 获取读数序列
+                read_seq = chrom_seq[start_pos:start_pos + self.read_length]
+                
+                # 应用预定义的样本变异到读数序列
+                modified_read = self._apply_variants(chrom, start_pos, read_seq, sample_variants)
+                
+                # 确保读数长度足够
+                if len(modified_read) < self.read_length:
+                    modified_read += ''.join(random_base() for _ in range(self.read_length - len(modified_read)))
+                
+                # 添加测序错误
+                modified_read, qual = self._add_sequencing_errors(modified_read)
+                
+                # 写入FASTQ格式
+                f.write(f"@{sample_name}_read_{read_idx}\n")
+                f.write(f"{modified_read}\n")
+                f.write(f"+\n")
+                f.write(f"{qual}\n")
+        
+        self.log(f"单端测序样本文件生成完成: {sample_path}")
+    
+    def _generate_paired_end_sample(self, sample_name, reads_count, reference_sequences, sample_variants):
+        """生成双端测序样本数据"""
+        # 样本文件路径 - R1和R2
+        sample_path_r1 = self.samples_dir / f"{sample_name}_R1.fastq.gz"
+        sample_path_r2 = self.samples_dir / f"{sample_name}_R2.fastq.gz"
+        
+        # 生成FASTQ数据
+        with gzip.open(sample_path_r1, 'wt') as f1, gzip.open(sample_path_r2, 'wt') as f2:
+            for read_idx in range(reads_count):
+                # 随机选择一条染色体
+                chrom = random.choice(list(reference_sequences.keys()))
+                chrom_seq = reference_sequences[chrom]
+                
+                # 随机选择起始位置，考虑片段大小
+                fragment_size = random.randint(300, 500)
+                start_pos = random.randint(0, max(0, len(chrom_seq) - fragment_size))
+                
+                # 应用预定义的样本变异到片段序列
+                fragment_seq = chrom_seq[start_pos:start_pos + fragment_size]
+                modified_fragment = self._apply_variants(chrom, start_pos, fragment_seq, sample_variants)
+                
+                # 从片段中提取正向和反向读数
+                forward_read = modified_fragment[:min(self.read_length, len(modified_fragment))]
+                reverse_start = max(0, len(modified_fragment) - self.read_length)
+                reverse_read = self._reverse_complement(modified_fragment[reverse_start:])
+                
+                # 确保读数长度足够
+                if len(forward_read) < self.read_length:
+                    forward_read += ''.join(random_base() for _ in range(self.read_length - len(forward_read)))
+                if len(reverse_read) < self.read_length:
+                    reverse_read += ''.join(random_base() for _ in range(self.read_length - len(reverse_read)))
+                
+                # 添加测序错误
+                forward_read, forward_qual = self._add_sequencing_errors(forward_read)
+                reverse_read, reverse_qual = self._add_sequencing_errors(reverse_read)
+                
+                # 写入R1文件
+                f1.write(f"@{sample_name}_read_{read_idx}/1\n")
+                f1.write(f"{forward_read}\n")
+                f1.write(f"+\n")
+                f1.write(f"{forward_qual}\n")
+                
+                # 写入R2文件
+                f2.write(f"@{sample_name}_read_{read_idx}/2\n")
+                f2.write(f"{reverse_read}\n")
+                f2.write(f"+\n")
+                f2.write(f"{reverse_qual}\n")
+        
+        self.log(f"双端测序样本文件生成完成: R1={sample_path_r1}, R2={sample_path_r2}")
     
     def _generate_sample_variants(self, reference_sequences, sample_idx):
         """为每个样本生成固定的变异位点集合"""

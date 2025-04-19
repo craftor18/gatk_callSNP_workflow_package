@@ -55,8 +55,8 @@ def generate_test_data(args):
     # 创建日志记录器
     logger = Logger(Path(output_dir) / "data_generation.log")
     
-    # 创建测试数据生成器
-    generator = TestDataGenerator(output_dir, logger)
+    # 创建测试数据生成器，传入测序类型
+    generator = TestDataGenerator(output_dir, logger, args.sequencing_type)
     
     # 生成数据
     ref_path, samples_dir = generator.generate_all()
@@ -75,13 +75,14 @@ def generate_test_data(args):
         config.set("reference", ref_path)
         config.set("samples_dir", samples_dir)
         config.set("output_dir", output_dir)
+        config.set("sequencing_type", args.sequencing_type)  # 设置测序类型
         
         # 保存配置
         config.save()
         
         print(f"测试数据配置文件已创建: {config_path}")
     
-    print(f"测试数据生成完成！参考基因组: {ref_path}, 样本目录: {samples_dir}")
+    print(f"测试数据生成完成！参考基因组: {ref_path}, 样本目录: {samples_dir}, 测序类型: {args.sequencing_type}")
 
 def run_pipeline(args):
     """运行流程"""
@@ -93,13 +94,17 @@ def run_pipeline(args):
     
     # 如果是测试模式，先生成测试数据
     if test_mode:
-        print("运行测试模式，自动生成测试数据...")
+        # 获取测序类型
+        sequencing_type = getattr(args, 'test_sequencing_type', 'single')
+        
+        print(f"运行测试模式，自动生成{sequencing_type}测序测试数据...")
         # 创建临时测试数据目录
         test_output_dir = Path("test_data")
         os.makedirs(test_output_dir, exist_ok=True)
         
         # 生成测试数据
-        generator = TestDataGenerator(str(test_output_dir))
+        logger = Logger(Path(test_output_dir) / "data_generation.log")
+        generator = TestDataGenerator(str(test_output_dir), logger, sequencing_type)
         ref_path, samples_dir = generator.generate_all()
         
         # 创建临时配置文件
@@ -114,6 +119,7 @@ def run_pipeline(args):
         config.set("reference", ref_path)
         config.set("samples_dir", samples_dir)
         config.set("output_dir", str(test_output_dir / "results"))
+        config.set("sequencing_type", sequencing_type)  # 设置测序类型
         
         # 保存配置
         config.save()
@@ -160,8 +166,13 @@ def run_pipeline(args):
         print(f"加载配置文件失败: {str(e)}")
         sys.exit(1)
     
+    # 确保输出目录存在
+    output_dir = config.get("output_dir", ".")
+    os.makedirs(output_dir, exist_ok=True)
+    
     # 创建日志记录器
-    logger = Logger(config.get_log_path())
+    log_path = config.get_log_path()
+    logger = Logger(log_path)
     logger.info(f"使用配置文件: {args.config}")
     
     # 如果启用了静默模式，调整日志级别
@@ -283,6 +294,12 @@ def main():
         "--create-config",
         help="创建配置文件路径，该配置文件将自动设置为使用生成的测试数据"
     )
+    test_data_parser.add_argument(
+        "--sequencing-type",
+        choices=["single", "paired"],
+        default="single",
+        help="测序类型: single(单端测序)或paired(双端测序)，默认为single"
+    )
     test_data_parser.set_defaults(func=generate_test_data)
     
     # run 命令
@@ -313,6 +330,12 @@ def main():
         "--test-mode",
         action="store_true",
         help="测试模式，自动生成测试数据并运行"
+    )
+    run_parser.add_argument(
+        "--test-sequencing-type",
+        choices=["single", "paired"],
+        default="single",
+        help="测试模式下的测序类型: single(单端测序)或paired(双端测序)，默认为single"
     )
     
     # 全局选项
