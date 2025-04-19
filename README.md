@@ -17,6 +17,10 @@
 - 生成GWAS分析数据
 - 内置测试数据生成
 - 自动性能优化
+- **断点续运行支持**
+- **文件格式转换功能**
+- **日志级别控制**
+- **进度跟踪与摘要报告**
 
 ## 系统要求
 
@@ -39,13 +43,13 @@
 
 ```bash
 # 下载最新版本
-wget https://github.com/craftor18/gatk_callSNP_workflow_package/releases/download/v1.0.2/gatk-snp-pipeline-linux-x64
+wget https://github.com/craftor18/gatk_callSNP_workflow_package/releases/download/v2.0.0/gatk-snp-pipeline-linux-x64
 
 # 添加执行权限
 chmod +x gatk-snp-pipeline-linux-x64
 
 # 移动到PATH路径
-sudo mv gatk-snp-pipeline-linux-x64 /usr/local/bin/
+sudo mv gatk-snp-pipeline-linux-x64 /usr/local/bin/gatk-snp-pipeline
 ```
 
 ### 方法2：从源码安装
@@ -67,19 +71,26 @@ pip install .
 ### 检查依赖
 
 ```bash
-gatk-snp-pipeline check-deps --skip-version-check
+gatk-snp-pipeline check-deps
 ```
 
 ### 创建配置文件
 
 ```bash
 # 创建配置文件模板
-gatk-snp-pipeline create-config -o config.yaml
+gatk-snp-pipeline init --config config.yaml
 ```
 
 ### 编辑配置文件
 
 编辑生成的`config.yaml`文件，设置参考基因组路径、样本路径和其他参数。
+
+### 查看可用步骤
+
+```bash
+# 列出所有可用步骤
+gatk-snp-pipeline list-steps
+```
 
 ### 运行特定步骤
 
@@ -95,6 +106,42 @@ gatk-snp-pipeline run --config config.yaml --step bwa_map
 
 ```bash
 gatk-snp-pipeline run --config config.yaml
+```
+
+### 全局选项
+
+流程支持多种全局选项，可以更灵活地控制运行方式：
+
+```bash
+# 强制覆盖所有已存在的输出文件
+gatk-snp-pipeline run --config config.yaml --force
+
+# 从上次中断的步骤继续运行
+gatk-snp-pipeline run --config config.yaml --resume
+
+# 显示详细输出信息
+gatk-snp-pipeline run --config config.yaml --verbose
+
+# 静默模式，只显示错误信息
+gatk-snp-pipeline run --config config.yaml --quiet
+
+# 支持简写形式
+gatk-snp-pipeline run --config config.yaml -f -r -v
+```
+
+### 文件格式转换
+
+支持将VCF文件转换为CSV、TSV或BED格式：
+
+```bash
+# 转换为CSV格式
+gatk-snp-pipeline convert --input results/snps.vcf --output results/snps.csv --format csv
+
+# 转换为TSV格式
+gatk-snp-pipeline convert --input results/snps.vcf --output results/snps.tsv --format tsv
+
+# 转换为BED格式
+gatk-snp-pipeline convert --input results/snps.vcf --output results/snps.bed --format bed
 ```
 
 ## 测试模式
@@ -135,46 +182,24 @@ gatk-snp-pipeline run --config test_config.yaml --test-mode
 # 1. 生成测试数据和配置文件
 gatk-snp-pipeline generate-test-data --output-dir test_data --create-config test_config.yaml
 
-# 2. 运行各个步骤的测试流程
-# 参考基因组索引
-gatk-snp-pipeline run --config test_config.yaml --step ref_index
-
-# BWA比对
-gatk-snp-pipeline run --config test_config.yaml --step bwa_map
-
-# SAM文件排序
-gatk-snp-pipeline run --config test_config.yaml --step sort_sam
-
-# 标记重复序列
-gatk-snp-pipeline run --config test_config.yaml --step mark_duplicates
-
-# BAM索引
-gatk-snp-pipeline run --config test_config.yaml --step index_bam
-
-# 变异位点检测
-gatk-snp-pipeline run --config test_config.yaml --step haplotype_caller
-
-# 合并GVCF文件
-gatk-snp-pipeline run --config test_config.yaml --step combine_gvcfs
-
-# 基因型分型
-gatk-snp-pipeline run --config test_config.yaml --step genotype_gvcfs
-
-# VCF过滤
-gatk-snp-pipeline run --config test_config.yaml --step vcf_filter
-
-# 选择SNP
-gatk-snp-pipeline run --config test_config.yaml --step select_snp
-
-# SNP软过滤
-gatk-snp-pipeline run --config test_config.yaml --step soft_filter_snp
-
-# 获取GWAS数据
-gatk-snp-pipeline run --config test_config.yaml --step get_gwas_data
-
-# 3. 或者直接一步运行完整流程(所有步骤)
+# 2. 一步运行完整流程(所有步骤)
 gatk-snp-pipeline run --config test_config.yaml
 ```
+
+## 断点续运行功能
+
+流程支持从上次中断的地方继续运行，非常适合长时间运行的任务：
+
+```bash
+# 启用断点续运行模式
+gatk-snp-pipeline run --config config.yaml --resume
+```
+
+断点续运行功能会：
+1. 自动记录已完成的步骤
+2. 在中断后重新启动时跳过已完成的步骤
+3. 从上次中断的步骤继续执行
+4. 保持之前的输出文件不变
 
 ## 性能优化
 
@@ -191,11 +216,18 @@ gatk-snp-pipeline run --config test_config.yaml
 threads: 8                 # 线程数
 max_memory: 32             # 最大内存使用量(GB)
 memory_per_thread: 2       # 每线程内存分配(GB)
+```
 
-# 性能优化设置
-performance:
-  auto_optimize: true      # 是否自动优化性能参数
-  parallel_jobs: 3         # 并行任务数
+## 日志级别控制
+
+可以通过命令行选项控制日志的详细程度：
+
+```bash
+# 详细模式，显示更多调试信息
+gatk-snp-pipeline run --config config.yaml --verbose
+
+# 静默模式，只显示错误信息
+gatk-snp-pipeline run --config config.yaml --quiet
 ```
 
 ## 配置文件说明
@@ -204,49 +236,113 @@ performance:
 
 ```yaml
 # 参考基因组
-reference: /path/to/reference.fasta
+reference: path/to/reference.fasta
 
 # 样本目录
-samples_dir: /path/to/samples
+samples_dir: path/to/samples
 
 # 输出目录
-output_dir: /path/to/output
+output_dir: results
 
-# 性能相关参数
+# 线程数
 threads: 8
-max_memory: 32
-memory_per_thread: 2
 
-# 性能优化设置
-performance:
-  auto_optimize: true
-  parallel_jobs: 3
+# 最大内存使用量(GB)
+max_memory: 16
+
+# 日志目录
+log_dir: logs
+
+# 软件路径
+software:
+  gatk: gatk
+  bwa: bwa
+  samtools: samtools
+  picard: picard
+  vcftools: vcftools
+  bcftools: bcftools
+  fastp: fastp
+  qualimap: qualimap
+  multiqc: multiqc
+
+# GATK参数
+gatk:
+  convert_to_hemizygous: false
 
 # 质量控制参数
 quality_control:
   min_base_quality: 20
   min_mapping_quality: 30
 
-# GATK 参数
-gatk:
-  min_allele_fraction: 0.2
-  min_base_quality: 20
+# 变异过滤参数
+variant_filter:
+  quality_filter: "QD < 2.0 || FS > 60.0 || MQ < 40.0"
+  filter_name: "basic_filter"
 ```
 
 ### 必需字段
 
 - `reference`: 参考基因组FASTA文件的路径
 - `samples_dir`: 包含样本FASTQ文件的目录
+- `output_dir`: 输出文件的目录
 
 ### 可选字段
 
-- `output_dir`: 输出文件的目录（默认为当前目录）
 - `threads`: 使用的线程数（默认为8）
-- `max_memory`: 最大内存使用量，单位GB（默认为32）
-- `memory_per_thread`: 每线程内存，单位GB（默认为2）
-- `performance`: 性能优化参数
+- `max_memory`: 最大内存使用量，单位GB（默认为16）
+- `log_dir`: 日志文件目录（默认为logs）
+- `software`: 软件路径配置
 - `quality_control`: 质量控制参数
-- `gatk`: GATK特定参数
+- `variant_filter`: 变异过滤参数
+
+## 分析报告
+
+流程完成后，会在输出目录生成`summary_report.txt`摘要报告，包含以下信息：
+
+- 运行信息（时间、配置文件、参考基因组等）
+- 统计信息（样本数量、SNP数量等）
+- 执行的步骤及状态
+- 结果文件列表及大小
+
+例如：
+
+```
+=== GATK SNP调用流程摘要报告 ===
+
+运行信息:
+日期时间: 2024-04-19 15:30:45
+配置文件: config.yaml
+参考基因组: path/to/reference.fasta
+样本目录: path/to/samples
+输出目录: results
+
+统计信息:
+样本数量: 3
+检测到的SNP数量: 12345
+过滤后的SNP数量: 10890
+
+执行的步骤:
+- 参考基因组索引: 已完成
+- BWA比对: 已完成
+- 排序SAM文件: 已完成
+- 标记重复序列: 已完成
+- 索引BAM文件: 已完成
+- GATK HaplotypeCaller: 已完成
+- 合并GVCF文件: 已完成
+- 基因型分型: 已完成
+- VCF过滤: 已完成
+- 选择SNP: 已完成
+- SNP软过滤: 已完成
+- 获取GWAS数据: 已完成
+
+结果文件:
+- combined.vcf: 65432.15 KB
+- genotyped.vcf: 54321.54 KB
+- filtered.vcf: 52345.87 KB
+- snps.vcf: 32456.12 KB
+- soft_filtered_snps.recode.vcf: 29876.43 KB
+- gwas_data.txt: 12345.67 KB
+```
 
 ## 流程步骤
 
