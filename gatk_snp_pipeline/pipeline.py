@@ -468,10 +468,14 @@ class Pipeline:
             sample_name = os.path.basename(sample_file).split('.')[0]
             output_sam = f"{output_dir}/{sample_name}.sam"
             
+            # 添加读组信息，这对GATK至关重要
+            read_group = f"@RG\\tID:{sample_name}\\tSM:{sample_name}\\tPL:ILLUMINA\\tLB:{sample_name}_lib\\tPU:unit1"
+            
             cmd = [
                 bwa, "mem",
                 "-t", threads,
                 "-M",  # 添加-M参数，标记短分割比对
+                "-R", f"'{read_group}'",  # 添加读组信息
                 ref,
                 sample_file,
                 ">", output_sam
