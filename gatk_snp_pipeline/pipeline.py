@@ -371,15 +371,18 @@ class Pipeline:
             sample_name = os.path.basename(bam_file).split('.')[0]
             output_gvcf = f"{output_dir}/{sample_name}.g.vcf"
             
+            # 确保参数格式正确，使用空格分隔每个参数
             cmd = [
                 gatk, "--java-options", f'"{java_mem}"', "HaplotypeCaller",
                 "-R", ref,
                 "-I", bam_file,
                 "-O", output_gvcf,
-                "--sample-name", sample_name,
-                "--standard-min-confidence-threshold-for-calling", "10",
-                "--emit-ref-confidence", "GVCF"
+                "--sample-name", sample_name
             ]
+            
+            # 添加额外参数，确保它们是正确分隔的独立参数
+            cmd.extend(["--emit-ref-confidence", "GVCF"])
+            
             cmds.append(' '.join(cmd))
         
         # 连接所有命令
