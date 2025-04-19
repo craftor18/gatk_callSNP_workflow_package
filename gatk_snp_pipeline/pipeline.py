@@ -815,7 +815,7 @@ class Pipeline:
         
         output_file = f"{output_dir}/gwas_data.txt"
         
-        # 移除 --threads 参数，因为 bcftools query 不支持该参数
+        # bcftools query命令不支持--threads参数
         cmd = [
             bcftools, "query",
             "-f", "%CHROM\\t%POS\\t%REF\\t%ALT[\\t%GT]\\n",
