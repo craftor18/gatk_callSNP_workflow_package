@@ -776,22 +776,36 @@ class Pipeline:
         """获取GWAS数据命令"""
         bcftools = self.config.get_software_path("bcftools")
         output_dir = self.config.get("output_dir", ".")
+        
+        # vcftools的输出文件通常是output_prefix.recode.vcf
         input_vcf = f"{output_dir}/soft_filtered_snps.recode.vcf"
         if not os.path.exists(input_vcf):
-            # 尝试使用另一个可能的文件名
-            input_vcf = f"{output_dir}/soft_filtered_snps.vcf"
-            if not os.path.exists(input_vcf):
-                raise FileNotFoundError(f"找不到输入文件: {input_vcf}")
+            # 如果找不到.recode.vcf文件，则查找其他可能的扩展名
+            alternative_paths = [
+                f"{output_dir}/soft_filtered_snps.vcf",
+                f"{output_dir}/soft_filtered_snps.recode.vcf.gz"
+            ]
+            for path in alternative_paths:
+                if os.path.exists(path):
+                    input_vcf = path
+                    break
+            else:
+                raise FileNotFoundError(f"找不到软过滤SNP文件，已尝试: {input_vcf} 和 {', '.join(alternative_paths)}")
         
+        self.logger.info(f"使用软过滤SNP文件: {input_vcf}")
         output_file = f"{output_dir}/gwas_data.txt"
         
         # 设置线程数
         threads = str(self.config.get("threads", 8))
         
-        return [
+        # 构建命令
+        cmd = [
             bcftools, "query",
             "-f", "%CHROM\\t%POS\\t%REF\\t%ALT[\\t%GT]\\n",
             "--threads", threads,
             input_vcf,
             ">", output_file
-        ] 
+        ]
+        
+        # 返回字符串列表
+        return [' '.join(cmd)] 
