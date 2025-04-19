@@ -194,11 +194,19 @@ class Pipeline:
         gatk = self.config.get_software_path("gatk")
         samtools = self.config.get_software_path("samtools")
         
+        # 获取字典文件路径和目录
+        ref_path = Path(ref)
+        dict_path = ref_path.with_suffix('.dict')
+        
+        # 构建命令，先删除可能存在的字典文件，然后再创建新的
         return [
+            f"rm -f {dict_path}",
+            "&&",
             bwa, "index", ref,
             "&&",
             gatk, "CreateSequenceDictionary",
             "-R", ref,
+            "-O", str(dict_path),  # 显式指定输出文件
             "&&",
             samtools, "faidx", ref
         ]
