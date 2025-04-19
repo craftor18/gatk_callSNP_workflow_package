@@ -1,92 +1,232 @@
+import os
 import yaml
+import shutil
 from pathlib import Path
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 
 class ConfigManager:
-    """配置管理器类"""
+    """配置管理器，负责加载和处理配置文件"""
     
     def __init__(self, config_path: Optional[str] = None):
-        self.config_path = Path(config_path) if config_path else None
-        self.config: Dict[str, Any] = {}
-        if config_path:
-            self.load_config()
-    
-    def load_config(self):
-        """加载配置文件"""
-        if not self.config_path or not self.config_path.exists():
-            raise FileNotFoundError(f"配置文件不存在: {self.config_path}")
+        """初始化配置管理器
         
-        with open(self.config_path, "r") as f:
-            self.config = yaml.safe_load(f)
+        Args:
+            config_path: 配置文件路径，如果为None则创建空配置
+        """
+        self.config_path = config_path
+        self.config = self._load_config(config_path) if config_path else {}
+        self.global_options = {
+            "force": False,   # 强制覆盖输出文件
+            "resume": False,  # 从中断处恢复
+            "verbose": False, # 显示详细信息
+            "quiet": False    # 静默模式
+        }
+        
+        # 初始化运行状态跟踪
+        self.completed_steps = set()
+        self.current_step = None
+        
+    def _load_config(self, config_path: str) -> Dict[str, Any]:
+        """加载配置文件
+        
+        Args:
+            config_path: 配置文件路径
+            
+        Returns:
+            配置字典
+        """
+        with open(config_path, 'r', encoding='utf-8') as f:
+            config = yaml.safe_load(f)
+        return config
     
-    def create_default_config(self, config_path: Path):
-        """创建默认配置文件"""
+    def get(self, key: str, default: Any = None) -> Any:
+        """获取配置项
+        
+        Args:
+            key: 配置键
+            default: 默认值
+            
+        Returns:
+            配置值
+        """
+        return self.config.get(key, default)
+    
+    def set(self, key: str, value: Any) -> None:
+        """设置配置项
+        
+        Args:
+            key: 配置键
+            value: 配置值
+        """
+        self.config[key] = value
+    
+    def set_global_option(self, option: str, value: Any) -> None:
+        """设置全局选项
+        
+        Args:
+            option: 选项名称
+            value: 选项值
+        """
+        if option in self.global_options:
+            self.global_options[option] = value
+    
+    def get_global_option(self, option: str) -> Any:
+        """获取全局选项
+        
+        Args:
+            option: 选项名称
+            
+        Returns:
+            选项值
+        """
+        return self.global_options.get(option, None)
+    
+    def get_log_path(self) -> str:
+        """获取日志文件路径
+        
+        Returns:
+            日志文件路径
+        """
+        log_dir = self.get("log_dir", "logs")
+        os.makedirs(log_dir, exist_ok=True)
+        return os.path.join(log_dir, "gatk_snp_pipeline.log")
+    
+    def get_software_path(self, software_name: str) -> str:
+        """获取软件路径
+        
+        Args:
+            software_name: 软件名称
+            
+        Returns:
+            软件路径
+        """
+        software_config = self.get("software", {})
+        return software_config.get(software_name, software_name)
+    
+    def save(self, path: Optional[str] = None) -> None:
+        """保存配置到文件
+        
+        Args:
+            path: 保存路径，默认为原配置文件路径
+        """
+        save_path = path or self.config_path
+        if save_path:
+            with open(save_path, 'w', encoding='utf-8') as f:
+                yaml.dump(self.config, f, default_flow_style=False)
+    
+    def validate(self) -> List[str]:
+        """验证配置有效性
+        
+        Returns:
+            错误信息列表，如果为空则表示验证通过
+        """
+        errors = []
+        
+        # 检查必需字段
+        required_fields = ["reference", "output_dir"]
+        for field in required_fields:
+            if field not in self.config:
+                errors.append(f"缺少必需配置项: {field}")
+        
+        # 验证文件是否存在
+        if "reference" in self.config and not os.path.exists(self.config["reference"]):
+            errors.append(f"参考基因组文件不存在: {self.config['reference']}")
+        
+        if "samples_dir" in self.config and not os.path.exists(self.config["samples_dir"]):
+            errors.append(f"样本目录不存在: {self.config['samples_dir']}")
+        
+        # 验证输出目录是否可写
+        if "output_dir" in self.config:
+            output_dir = self.config["output_dir"]
+            if os.path.exists(output_dir):
+                if not os.access(output_dir, os.W_OK):
+                    errors.append(f"输出目录不可写: {output_dir}")
+            else:
+                try:
+                    os.makedirs(output_dir, exist_ok=True)
+                except Exception as e:
+                    errors.append(f"无法创建输出目录: {output_dir}, 错误: {str(e)}")
+        
+        return errors
+    
+    def create_backup(self) -> str:
+        """创建配置文件备份
+        
+        Returns:
+            备份文件路径
+        """
+        if not self.config_path:
+            return ""
+            
+        backup_path = f"{self.config_path}.bak"
+        shutil.copy2(self.config_path, backup_path)
+        return backup_path
+    
+    def mark_step_complete(self, step_name: str) -> None:
+        """标记步骤为已完成
+        
+        Args:
+            step_name: 步骤名称
+        """
+        self.completed_steps.add(step_name)
+        self.save_progress()
+    
+    def save_progress(self) -> None:
+        """保存运行进度到文件"""
+        output_dir = self.get("output_dir", ".")
+        progress_path = os.path.join(output_dir, ".progress")
+        with open(progress_path, 'w') as f:
+            for step in self.completed_steps:
+                f.write(f"{step}\n")
+    
+    def load_progress(self) -> None:
+        """从文件加载运行进度"""
+        output_dir = self.get("output_dir", ".")
+        progress_path = os.path.join(output_dir, ".progress")
+        if os.path.exists(progress_path):
+            with open(progress_path, 'r') as f:
+                self.completed_steps = set(line.strip() for line in f if line.strip())
+    
+    @staticmethod
+    def generate_default_config(output_path: str) -> None:
+        """生成默认配置文件
+        
+        Args:
+            output_path: 输出文件路径
+        """
         default_config = {
-            "samples_dir": "path/to/samples",
-            "output_dir": "path/to/output",
             "reference": "path/to/reference.fasta",
+            "samples_dir": "path/to/samples",
+            "output_dir": "results",
             "threads": 8,
-            "max_memory": 32,
-            "memory_per_thread": 2,
-            "software_paths": {
-                "gatk": "path/to/gatk",
-                "bwa": "path/to/bwa",
-                "samtools": "path/to/samtools",
-                "picard": "path/to/picard",
-                "vcftools": "path/to/vcftools",
-                "bcftools": "path/to/bcftools",
-                "fastp": "path/to/fastp",
-                "qualimap": "path/to/qualimap",
-                "multiqc": "path/to/multiqc",
-                "bwa-mem2": "path/to/bwa-mem2"
+            "max_memory": 16,
+            "log_dir": "logs",
+            "software": {
+                "gatk": "gatk",
+                "bwa": "bwa",
+                "samtools": "samtools",
+                "picard": "picard",
+                "vcftools": "vcftools",
+                "bcftools": "bcftools",
+                "fastp": "fastp",
+                "qualimap": "qualimap",
+                "multiqc": "multiqc"
             },
-            "performance": {
-                "auto_optimize": True,
-                "parallel_jobs": 3
+            "gatk": {
+                "convert_to_hemizygous": False
             },
             "quality_control": {
                 "min_base_quality": 20,
                 "min_mapping_quality": 30
             },
-            "gatk": {
-                "min_allele_fraction": 0.2,
-                "min_base_quality": 20
+            "variant_filter": {
+                "quality_filter": "QD < 2.0 || FS > 60.0 || MQ < 40.0",
+                "filter_name": "basic_filter"
             }
         }
         
-        with open(config_path, "w") as f:
+        with open(output_path, 'w', encoding='utf-8') as f:
             yaml.dump(default_config, f, default_flow_style=False)
-    
-    def get(self, key: str, default: Any = None) -> Any:
-        """获取配置项"""
-        return self.config.get(key, default)
-    
-    def set(self, key: str, value: Any):
-        """设置配置项"""
-        self.config[key] = value
-    
-    def save(self):
-        """保存配置到文件"""
-        if not self.config_path:
-            raise ValueError("未指定配置文件路径")
         
-        with open(self.config_path, "w") as f:
-            yaml.dump(self.config, f, default_flow_style=False)
-    
-    def get_log_path(self) -> Path:
-        """获取日志文件路径"""
-        output_dir = Path(self.get("output_dir", "."))
-        return output_dir / "pipeline.log"
-    
-    def get_software_path(self, software: str) -> str:
-        """获取软件路径"""
-        software_paths = self.get("software_paths", {})
-        return software_paths.get(software, software)  # 如果未配置，返回软件名称
-    
-    def validate(self) -> bool:
-        """验证配置是否有效"""
-        required_keys = ["samples_dir", "output_dir", "reference"]
-        for key in required_keys:
-            if key not in self.config:
-                return False
-        return True 
+        print(f"默认配置文件已生成: {output_path}")
+        print("请编辑配置文件，设置参考基因组和样本目录等必要参数。") 
