@@ -376,8 +376,9 @@ class Pipeline:
                 "-R", ref,
                 "-I", bam_file,
                 "-O", output_gvcf,
-                "-ERC", "GVCF",
-                "--sample-name", sample_name
+                "--sample-name", sample_name,
+                "--standard-min-confidence-threshold-for-calling", "10",
+                "--emit-ref-confidence", "GVCF"
             ]
             cmds.append(' '.join(cmd))
         
