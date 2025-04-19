@@ -465,32 +465,73 @@ class Pipeline:
             
         threads = str(self.config.get("threads", 8))
         
-        # 获取样本文件列表，处理通配符路径
-        sample_pattern = f"{samples_dir}/*.fastq.gz"
-        sample_files = glob.glob(sample_pattern)
+        # 获取测序类型，默认为双端测序
+        sequencing_type = self.config.get("sequencing_type", "paired")
         
-        if not sample_files:
-            raise FileNotFoundError(f"未找到与模式 {sample_pattern} 匹配的样本文件")
-        
-        # 处理多个样本的情况
-        cmds = []
-        for sample_file in sample_files:
-            sample_name = os.path.basename(sample_file).split('.')[0]
-            output_sam = f"{output_dir}/{sample_name}.sam"
+        if sequencing_type == "paired":
+            # 双端测序数据
+            # 获取R1样本文件列表，处理通配符路径
+            sample_pattern_r1 = f"{samples_dir}/*_R1*.fastq.gz"
+            sample_files_r1 = glob.glob(sample_pattern_r1)
             
-            # 添加读组信息，这对GATK至关重要
-            read_group = f"@RG\\tID:{sample_name}\\tSM:{sample_name}\\tPL:ILLUMINA\\tLB:{sample_name}_lib\\tPU:unit1"
+            if not sample_files_r1:
+                raise FileNotFoundError(f"未找到与模式 {sample_pattern_r1} 匹配的样本文件")
             
-            cmd = [
-                bwa, "mem",
-                "-t", threads,
-                "-M",  # 添加-M参数，标记短分割比对
-                "-R", f"'{read_group}'",  # 添加读组信息
-                ref,
-                sample_file,
-                ">", output_sam
-            ]
-            cmds.append(' '.join(cmd))
+            # 处理多个样本的情况
+            cmds = []
+            for sample_file_r1 in sample_files_r1:
+                # 根据R1文件推断R2文件
+                sample_file_r2 = sample_file_r1.replace("_R1", "_R2")
+                if not os.path.exists(sample_file_r2):
+                    raise FileNotFoundError(f"未找到配对的R2文件：{sample_file_r2}")
+                
+                # 从R1文件名中提取样本名，去掉_R1部分
+                sample_name = os.path.basename(sample_file_r1).split('.')[0]
+                sample_name = sample_name.replace("_R1", "")
+                
+                output_sam = f"{output_dir}/{sample_name}.sam"
+                
+                # 添加读组信息，这对GATK至关重要
+                read_group = f"@RG\\tID:{sample_name}\\tSM:{sample_name}\\tPL:ILLUMINA\\tLB:{sample_name}_lib\\tPU:unit1"
+                
+                cmd = [
+                    bwa, "mem",
+                    "-t", threads,
+                    "-M",  # 添加-M参数，标记短分割比对
+                    "-R", f"'{read_group}'",  # 添加读组信息
+                    ref,
+                    sample_file_r1,
+                    sample_file_r2,
+                    ">", output_sam
+                ]
+                cmds.append(' '.join(cmd))
+        else:
+            # 单端测序数据
+            sample_pattern = f"{samples_dir}/*.fastq.gz"
+            sample_files = glob.glob(sample_pattern)
+            
+            if not sample_files:
+                raise FileNotFoundError(f"未找到与模式 {sample_pattern} 匹配的样本文件")
+            
+            # 处理多个样本的情况
+            cmds = []
+            for sample_file in sample_files:
+                sample_name = os.path.basename(sample_file).split('.')[0]
+                output_sam = f"{output_dir}/{sample_name}.sam"
+                
+                # 添加读组信息，这对GATK至关重要
+                read_group = f"@RG\\tID:{sample_name}\\tSM:{sample_name}\\tPL:ILLUMINA\\tLB:{sample_name}_lib\\tPU:unit1"
+                
+                cmd = [
+                    bwa, "mem",
+                    "-t", threads,
+                    "-M",  # 添加-M参数，标记短分割比对
+                    "-R", f"'{read_group}'",  # 添加读组信息
+                    ref,
+                    sample_file,
+                    ">", output_sam
+                ]
+                cmds.append(' '.join(cmd))
             
         # 连接所有命令
         return [' && '.join(cmds)]
