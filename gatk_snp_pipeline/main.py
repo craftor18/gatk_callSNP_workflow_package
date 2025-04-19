@@ -29,7 +29,17 @@ def main():
         sys.path.insert(0, current_dir)
     
     # 导入必要的模块
-    from gatk_snp_pipeline.cli import main as cli_main
+    # 确保所有模块都能在打包后导入
+    try:
+        from gatk_snp_pipeline.cli import main as cli_main
+        from gatk_snp_pipeline.pipeline import Pipeline
+        from gatk_snp_pipeline.config import ConfigManager
+        from gatk_snp_pipeline.dependency_checker import DependencyChecker
+        from gatk_snp_pipeline.logger import Logger
+        from gatk_snp_pipeline.data_generator import TestDataGenerator
+    except ImportError as e:
+        print(f"导入模块失败: {e}")
+        sys.exit(1)
     
     # 运行命令行接口
     cli_main()

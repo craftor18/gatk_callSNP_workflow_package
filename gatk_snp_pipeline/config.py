@@ -24,10 +24,10 @@ class ConfigManager:
         default_config = {
             "samples_dir": "path/to/samples",
             "output_dir": "path/to/output",
-            "reference_genome": "path/to/reference.fasta",
-            "threads_per_job": 8,
-            "max_parallel_jobs": 3,
+            "reference": "path/to/reference.fasta",
+            "threads": 8,
             "max_memory": 32,
+            "memory_per_thread": 2,
             "software_paths": {
                 "gatk": "path/to/gatk",
                 "bwa": "path/to/bwa",
@@ -39,6 +39,18 @@ class ConfigManager:
                 "qualimap": "path/to/qualimap",
                 "multiqc": "path/to/multiqc",
                 "bwa-mem2": "path/to/bwa-mem2"
+            },
+            "performance": {
+                "auto_optimize": True,
+                "parallel_jobs": 3
+            },
+            "quality_control": {
+                "min_base_quality": 20,
+                "min_mapping_quality": 30
+            },
+            "gatk": {
+                "min_allele_fraction": 0.2,
+                "min_base_quality": 20
             }
         }
         
@@ -73,7 +85,7 @@ class ConfigManager:
     
     def validate(self) -> bool:
         """验证配置是否有效"""
-        required_keys = ["samples_dir", "output_dir", "reference_genome"]
+        required_keys = ["samples_dir", "output_dir", "reference"]
         for key in required_keys:
             if key not in self.config:
                 return False

@@ -25,23 +25,39 @@ def clean_build_dirs():
 def get_platform_specific_params():
     """获取平台特定的构建参数"""
     system = platform.system().lower()
+    
+    # 通用参数
+    params = {
+        'onefile': True,
+        'console': True,
+        'add_data': [],
+        'hidden_imports': [
+            'gatk_snp_pipeline.data_generator',  # 确保测试数据生成模块被包含
+            'gatk_snp_pipeline.config',
+            'gatk_snp_pipeline.pipeline',
+            'gatk_snp_pipeline.dependency_checker',
+            'gatk_snp_pipeline.logger',
+            'psutil'  # 性能优化依赖
+        ]
+    }
+    
+    # 平台特定参数
     if system == 'linux':
-        return {
-            'name': 'gatk-snp-pipeline-linux-x64',
-            'icon': None,
-            'console': True,
-            'onefile': True,
-            'add_data': []
-        }
+        params['name'] = 'gatk-snp-pipeline-linux-x64'
+        params['icon'] = None
+    elif system == 'windows':
+        params['name'] = 'gatk-snp-pipeline-win-x64'
+        params['icon'] = None
     else:
-        print("错误：只支持在 Linux 平台上构建！")
-        sys.exit(1)
+        print("警告：未知平台，使用通用设置")
+        params['name'] = 'gatk-snp-pipeline'
+        
+    return params
 
 def main():
     # 检查平台
-    if platform.system().lower() != 'linux':
-        print("错误：只支持在 Linux 平台上构建！")
-        sys.exit(1)
+    if platform.system().lower() != 'linux' and platform.system().lower() != 'windows':
+        print("警告：此构建脚本主要为Linux平台设计，在其他平台可能无法正常工作")
     
     # 获取平台特定的参数
     params = get_platform_specific_params()
@@ -72,6 +88,11 @@ def main():
     if params['icon']:
         cmd.extend(['--icon', params['icon']])
     
+    # 添加隐藏导入
+    for hidden_import in params['hidden_imports']:
+        cmd.extend(['--hidden-import', hidden_import])
+    
+    # 添加数据文件
     for data in params['add_data']:
         cmd.extend(['--add-data', data])
     
@@ -79,7 +100,7 @@ def main():
     cmd.append('gatk_snp_pipeline/main.py')
     
     # 打印构建命令
-    print(f"Building executable for Linux...")
+    print(f"Building executable for {platform.system()}...")
     print(f"Command: {' '.join(cmd)}")
     
     # 执行构建命令

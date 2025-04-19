@@ -15,6 +15,8 @@
 - VCF过滤
 - SNP提取和过滤
 - 生成GWAS分析数据
+- 内置测试数据生成
+- 自动性能优化
 
 ## 系统要求
 
@@ -95,6 +97,107 @@ gatk-snp-pipeline run --config config.yaml --step bwa_map
 gatk-snp-pipeline run --config config.yaml
 ```
 
+## 测试模式
+
+本程序内置了测试数据生成功能，可以生成模拟的参考基因组和测序数据，便于验证流程是否正常工作。
+
+### 生成测试数据
+
+```bash
+# 生成测试数据
+gatk-snp-pipeline generate-test-data --output-dir test_data
+
+# 生成测试数据并创建配置文件
+gatk-snp-pipeline generate-test-data --output-dir test_data --create-config test_config.yaml
+```
+
+### 测试模式运行
+
+测试模式会自动生成测试数据并运行完整流程，无需额外提供参考基因组和样本:
+
+```bash
+# 测试模式运行
+gatk-snp-pipeline run --config test_config.yaml --test-mode
+```
+
+测试模式生成的数据量小，可以迅速验证整个流程的功能，适合以下场景:
+
+1. 验证软件安装和依赖配置是否正确
+2. 测试新增功能或修改后的流程
+3. 快速演示流程的工作方式
+4. 培训和教学
+
+### 测试流程示例
+
+以下是使用模拟数据运行完整测试流程的示例命令：
+
+```bash
+# 1. 生成测试数据和配置文件
+gatk-snp-pipeline generate-test-data --output-dir test_data --create-config test_config.yaml
+
+# 2. 运行各个步骤的测试流程
+# 参考基因组索引
+gatk-snp-pipeline run --config test_config.yaml --step ref_index
+
+# BWA比对
+gatk-snp-pipeline run --config test_config.yaml --step bwa_map
+
+# SAM文件排序
+gatk-snp-pipeline run --config test_config.yaml --step sort_sam
+
+# 标记重复序列
+gatk-snp-pipeline run --config test_config.yaml --step mark_duplicates
+
+# BAM索引
+gatk-snp-pipeline run --config test_config.yaml --step index_bam
+
+# 变异位点检测
+gatk-snp-pipeline run --config test_config.yaml --step haplotype_caller
+
+# 合并GVCF文件
+gatk-snp-pipeline run --config test_config.yaml --step combine_gvcfs
+
+# 基因型分型
+gatk-snp-pipeline run --config test_config.yaml --step genotype_gvcfs
+
+# VCF过滤
+gatk-snp-pipeline run --config test_config.yaml --step vcf_filter
+
+# 选择SNP
+gatk-snp-pipeline run --config test_config.yaml --step select_snp
+
+# SNP软过滤
+gatk-snp-pipeline run --config test_config.yaml --step soft_filter_snp
+
+# 获取GWAS数据
+gatk-snp-pipeline run --config test_config.yaml --step get_gwas_data
+
+# 3. 或者直接一步运行完整流程(所有步骤)
+gatk-snp-pipeline run --config test_config.yaml
+```
+
+## 性能优化
+
+流程自动进行性能优化，根据系统资源调整参数:
+
+1. **自动调整线程数**：根据CPU核心数自动设置合适的线程数量
+2. **内存优化**：为GATK和其他工具分配最佳内存，避免内存不足或浪费
+3. **每线程内存分配**：根据总内存和线程数优化每个线程的内存使用量
+
+可以在配置文件中控制这些参数：
+
+```yaml
+# 性能相关参数
+threads: 8                 # 线程数
+max_memory: 32             # 最大内存使用量(GB)
+memory_per_thread: 2       # 每线程内存分配(GB)
+
+# 性能优化设置
+performance:
+  auto_optimize: true      # 是否自动优化性能参数
+  parallel_jobs: 3         # 并行任务数
+```
+
 ## 配置文件说明
 
 以下是配置文件的主要字段：
@@ -109,8 +212,15 @@ samples_dir: /path/to/samples
 # 输出目录
 output_dir: /path/to/output
 
-# 线程数
+# 性能相关参数
 threads: 8
+max_memory: 32
+memory_per_thread: 2
+
+# 性能优化设置
+performance:
+  auto_optimize: true
+  parallel_jobs: 3
 
 # 质量控制参数
 quality_control:
@@ -132,6 +242,9 @@ gatk:
 
 - `output_dir`: 输出文件的目录（默认为当前目录）
 - `threads`: 使用的线程数（默认为8）
+- `max_memory`: 最大内存使用量，单位GB（默认为32）
+- `memory_per_thread`: 每线程内存，单位GB（默认为2）
+- `performance`: 性能优化参数
 - `quality_control`: 质量控制参数
 - `gatk`: GATK特定参数
 

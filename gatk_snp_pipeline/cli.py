@@ -8,12 +8,14 @@ try:
     from .config import ConfigManager
     from .dependency_checker import DependencyChecker
     from .logger import Logger
+    from .data_generator import TestDataGenerator
 except ImportError:
     # 在打包为可执行文件后使用绝对导入
     from gatk_snp_pipeline.pipeline import Pipeline
     from gatk_snp_pipeline.config import ConfigManager
     from gatk_snp_pipeline.dependency_checker import DependencyChecker
     from gatk_snp_pipeline.logger import Logger
+    from gatk_snp_pipeline.data_generator import TestDataGenerator
 
 def init_config(args):
     """初始化配置文件"""
@@ -41,10 +43,78 @@ def check_dependencies(args):
     else:
         print("所有依赖检查通过！")
 
+def generate_test_data(args):
+    """生成测试数据"""
+    print("开始生成测试数据...")
+    
+    # 创建输出目录
+    output_dir = args.output_dir
+    os.makedirs(output_dir, exist_ok=True)
+    
+    # 创建日志记录器
+    logger = Logger(Path(output_dir) / "data_generation.log")
+    
+    # 创建测试数据生成器
+    generator = TestDataGenerator(output_dir, logger)
+    
+    # 生成数据
+    ref_path, samples_dir = generator.generate_all()
+    
+    # 创建配置文件
+    if args.create_config:
+        config_path = Path(args.create_config)
+        config = ConfigManager()
+        config.create_default_config(config_path)
+        
+        # 更新配置
+        config.config["reference"] = ref_path
+        config.config["samples_dir"] = samples_dir
+        config.config["output_dir"] = output_dir
+        
+        # 保存配置
+        config.config_path = config_path
+        config.save()
+        
+        print(f"测试数据配置文件已创建: {config_path}")
+    
+    print(f"测试数据生成完成！参考基因组: {ref_path}, 样本目录: {samples_dir}")
+
 def run_pipeline(args):
     """运行流程"""
     # 确保skip_deps参数存在
     skip_deps = getattr(args, 'skip_deps', False)
+    
+    # 测试模式标志
+    test_mode = getattr(args, 'test_mode', False)
+    
+    # 如果是测试模式，先生成测试数据
+    if test_mode:
+        print("运行测试模式，自动生成测试数据...")
+        # 创建临时测试数据目录
+        test_output_dir = Path("test_data")
+        os.makedirs(test_output_dir, exist_ok=True)
+        
+        # 生成测试数据
+        generator = TestDataGenerator(str(test_output_dir))
+        ref_path, samples_dir = generator.generate_all()
+        
+        # 创建临时配置文件
+        test_config_path = test_output_dir / "test_config.yaml"
+        config = ConfigManager()
+        config.create_default_config(test_config_path)
+        
+        # 更新配置
+        config.config["reference"] = ref_path
+        config.config["samples_dir"] = samples_dir
+        config.config["output_dir"] = str(test_output_dir / "results")
+        
+        # 保存配置
+        config.config_path = test_config_path
+        config.save()
+        
+        # 使用测试配置文件
+        args.config = str(test_config_path)
+        print(f"测试数据已生成，使用配置文件: {args.config}")
     
     # 检查配置文件是否存在
     if not os.path.isfile(args.config):
@@ -143,6 +213,23 @@ def main():
     )
     check_parser.set_defaults(func=check_dependencies)
     
+    # generate-test-data 命令
+    test_data_parser = subparsers.add_parser(
+        "generate-test-data",
+        help="生成测试数据",
+        description="生成用于测试的参考基因组和FASTQ样本文件"
+    )
+    test_data_parser.add_argument(
+        "--output-dir",
+        required=True,
+        help="测试数据输出目录"
+    )
+    test_data_parser.add_argument(
+        "--create-config",
+        help="创建配置文件路径，该配置文件将自动设置为使用生成的测试数据"
+    )
+    test_data_parser.set_defaults(func=generate_test_data)
+    
     # run 命令
     run_parser = subparsers.add_parser(
         "run",
@@ -166,6 +253,11 @@ def main():
         "--skip-deps",
         action="store_true",
         help="跳过依赖检查"
+    )
+    run_parser.add_argument(
+        "--test-mode",
+        action="store_true",
+        help="测试模式，自动生成测试数据并运行"
     )
     run_parser.set_defaults(func=run_pipeline)
     
