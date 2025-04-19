@@ -12,7 +12,7 @@ with open("README.md", "r", encoding="utf-8") as f:
 
 setup(
     name="gatk-snp-pipeline",
-    version="1.0.0",
+    version="2.0.0",
     packages=find_packages(),
     include_package_data=True,
     install_requires=read_requirements(),
@@ -21,12 +21,12 @@ setup(
             'gatk-snp-pipeline=gatk_snp_pipeline.main:main',
         ],
     },
-    author="Your Name",
-    author_email="your.email@example.com",
+    author="Craftor",
+    author_email="craftor18@example.com",
     description="GATK SNP Calling Pipeline",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/yourusername/gatk-snp-pipeline",
+    url="https://github.com/craftor18/gatk_callSNP_workflow_package",
     classifiers=[
         "Programming Language :: Python :: 3",
         "License :: OSI Approved :: MIT License",

@@ -148,16 +148,22 @@ class TestDataGenerator:
                     
                     # 随机选择起始位置，考虑片段大小
                     fragment_size = random.randint(300, 500)
-                    start_pos = random.randint(0, len(chrom_seq) - fragment_size)
+                    start_pos = random.randint(0, max(0, len(chrom_seq) - fragment_size))
                     
                     # 应用预定义的样本变异到片段序列
                     fragment_seq = chrom_seq[start_pos:start_pos + fragment_size]
                     modified_fragment = self._apply_variants(chrom, start_pos, fragment_seq, sample_variants)
                     
                     # 从片段中提取正向和反向读数
-                    forward_read = modified_fragment[:self.read_length]
+                    forward_read = modified_fragment[:min(self.read_length, len(modified_fragment))]
                     reverse_start = max(0, len(modified_fragment) - self.read_length)
                     reverse_read = self._reverse_complement(modified_fragment[reverse_start:])
+                    
+                    # 确保读数长度足够
+                    if len(forward_read) < self.read_length:
+                        forward_read += ''.join(random_base() for _ in range(self.read_length - len(forward_read)))
+                    if len(reverse_read) < self.read_length:
+                        reverse_read += ''.join(random_base() for _ in range(self.read_length - len(reverse_read)))
                     
                     # 添加测序错误
                     forward_read, forward_qual = self._add_sequencing_errors(forward_read)
@@ -187,7 +193,9 @@ class TestDataGenerator:
             
             # 生成SNP变异
             snp_count = int(len(seq) * self.snp_rate)
-            snp_positions = random.sample(range(len(seq)), snp_count)
+            # 确保不取太多位置
+            max_positions = min(snp_count, len(seq) // 2)
+            snp_positions = random.sample(range(len(seq)), max_positions)
             
             for pos in snp_positions:
                 ref_base = seq[pos]
@@ -199,20 +207,23 @@ class TestDataGenerator:
             
             # 生成Indel变异
             indel_count = int(len(seq) * self.indel_rate)
-            indel_positions = random.sample(range(len(seq) - 10), indel_count)
-            
-            for pos in indel_positions:
-                if random.random() < 0.5:  # 插入
-                    insert_length = random.randint(1, 5)
-                    insert_seq = ''.join(random_base() for _ in range(insert_length))
-                    if sample_idx % 3 == pos % 3:  # 创造样本间差异
-                        chrom_variants.append(('INS', pos, "", insert_seq))
-                else:  # 删除
-                    del_length = random.randint(1, 5)
-                    if pos + del_length < len(seq):
-                        del_seq = seq[pos:pos+del_length]
-                        if sample_idx % 3 == (pos % 3 + 1) % 3:  # 创造样本间差异
-                            chrom_variants.append(('DEL', pos, del_seq, ""))
+            # 确保不取太多位置
+            max_indel_positions = min(indel_count, len(seq) // 4)
+            if max_indel_positions > 0:
+                indel_positions = random.sample(range(len(seq) - 10), max_indel_positions)
+                
+                for pos in indel_positions:
+                    if random.random() < 0.5:  # 插入
+                        insert_length = random.randint(1, 5)
+                        insert_seq = ''.join(random_base() for _ in range(insert_length))
+                        if sample_idx % 3 == pos % 3:  # 创造样本间差异
+                            chrom_variants.append(('INS', pos, "", insert_seq))
+                    else:  # 删除
+                        del_length = random.randint(1, 5)
+                        if pos + del_length < len(seq):
+                            del_seq = seq[pos:pos+del_length]
+                            if sample_idx % 3 == (pos % 3 + 1) % 3:  # 创造样本间差异
+                                chrom_variants.append(('DEL', pos, del_seq, ""))
             
             variants[chrom] = chrom_variants
         
@@ -240,6 +251,10 @@ class TestDataGenerator:
         for var_type, pos, ref, alt in applicable_variants:
             rel_pos = pos - start_pos  # 相对位置
             
+            # 确保rel_pos在有效范围内
+            if rel_pos < 0 or rel_pos >= len(seq_list):
+                continue
+                
             if var_type == 'SNP':
                 seq_list[rel_pos] = alt
             elif var_type == 'INS':
@@ -248,37 +263,45 @@ class TestDataGenerator:
                 del_end = min(rel_pos + len(ref), len(seq_list))
                 for i in range(rel_pos, del_end):
                     if i < len(seq_list):
-                        seq_list[i] = ""
+                        seq_list[i] = ''  # 标记为删除
+        
+        # 过滤掉已删除的位置
+        seq_list = [base for base in seq_list if base != '']
         
         return ''.join(seq_list)
     
     def _reverse_complement(self, seq):
-        """返回序列的反向互补"""
+        """生成序列的反向互补"""
         complement = {'A': 'T', 'T': 'A', 'G': 'C', 'C': 'G', 'N': 'N'}
         return ''.join(complement.get(base, 'N') for base in reversed(seq))
     
     def _add_sequencing_errors(self, seq):
         """添加测序错误并生成质量分数"""
-        result = list(seq)
-        qual = []
+        # 错误率和质量分数参数
+        base_error_rate = 0.001  # 基础错误率
+        qual_range = (30, 40)    # 高质量范围
+        error_qual_range = (5, 20)  # 错误位点质量范围
         
-        for i in range(len(result)):
-            # 模拟测序质量随位置下降
-            base_error_rate = 0.001 + (i / len(result)) * 0.01
-            
-            # 随机添加错误
+        # 处理序列和生成质量分数
+        seq_with_errors = list(seq)
+        quality_scores = []
+        
+        for i, base in enumerate(seq):
+            # 随机决定是否引入错误
             if random.random() < base_error_rate:
-                result[i] = random.choice([b for b in ['A', 'T', 'G', 'C'] if b != result[i]])
-                # 低质量分数
-                qual.append(chr(random.randint(33, 40)))
+                # 引入错误
+                seq_with_errors[i] = random.choice([b for b in ['A', 'T', 'G', 'C'] if b != base])
+                # 生成较低的质量分数
+                quality_scores.append(chr(random.randint(*error_qual_range) + 33))
             else:
-                # 高质量分数
-                qual.append(chr(random.randint(41, 73)))
+                # 生成高质量分数
+                quality_scores.append(chr(random.randint(*qual_range) + 33))
         
-        return ''.join(result), ''.join(qual)
+        # 返回修改后的序列和质量分数
+        return ''.join(seq_with_errors), ''.join(quality_scores)
     
     def _load_reference(self, reference_path: Path) -> dict:
-        """加载参考基因组"""
+        """加载参考基因组序列"""
         sequences = {}
         current_chrom = None
         current_seq = []
@@ -287,19 +310,18 @@ class TestDataGenerator:
             for line in f:
                 line = line.strip()
                 if line.startswith('>'):
-                    # 如果有之前的染色体，先保存它
-                    if current_chrom is not None:
+                    # 如果已经在读取某条染色体，保存之前的序列
+                    if current_chrom:
                         sequences[current_chrom] = ''.join(current_seq)
                     
-                    # 新染色体
-                    current_chrom = line[1:]  # 去掉'>'前缀
+                    # 开始新的染色体
+                    current_chrom = line[1:]
                     current_seq = []
                 else:
-                    # 添加序列
                     current_seq.append(line)
         
         # 保存最后一条染色体
-        if current_chrom is not None:
+        if current_chrom:
             sequences[current_chrom] = ''.join(current_seq)
-            
+        
         return sequences 
