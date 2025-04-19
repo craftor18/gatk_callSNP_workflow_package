@@ -547,7 +547,7 @@ class Pipeline:
             java_mem = f"-Xmx{max_memory_gb}g"
             
             cmd = [
-                gatk, "--java-options", f'"{java_mem}"', "MarkDuplicates",
+                gatk, "--java-options", java_mem, "MarkDuplicates",
                 "-I", bam_file,
                 "-O", output_bam,
                 "-M", metrics,
@@ -612,7 +612,7 @@ class Pipeline:
             
             # 确保参数格式正确，使用空格分隔每个参数
             cmd = [
-                gatk, "--java-options", f'"{java_mem}"', "HaplotypeCaller",
+                gatk, "--java-options", java_mem, "HaplotypeCaller",
                 "-R", ref,
                 "-I", bam_file,
                 "-O", output_gvcf
@@ -649,7 +649,9 @@ class Pipeline:
         java_mem = f"-Xmx{max_memory_gb}g"
         
         # 构建命令，为每个GVCF文件添加-V参数
-        cmd = [gatk, "--java-options", f'"{java_mem}"', "CombineGVCFs", "-R", ref]
+        cmd = [
+            gatk, "--java-options", f'"{java_mem}"', "CombineGVCFs", "-R", ref
+        ]
         
         for gvcf_file in gvcf_files:
             cmd.extend(["-V", gvcf_file])
@@ -660,7 +662,8 @@ class Pipeline:
         if self.config.get("gatk", {}).get("convert_to_hemizygous", False):
             cmd.extend(["--convert-to-hemizygous"])
             
-        return cmd
+        # 返回字符串列表而不是命令列表
+        return [' '.join(cmd)]
     
     def _get_genotype_gvcfs_cmd(self) -> List[str]:
         """获取基因型分型命令"""
@@ -681,7 +684,7 @@ class Pipeline:
         java_mem = f"-Xmx{max_memory_gb}g"
         
         return [
-            gatk, "--java-options", f'"{java_mem}"', "GenotypeGVCFs",
+            gatk, "--java-options", java_mem, "GenotypeGVCFs",
             "-R", ref,
             "-V", input_vcf,
             "-O", output_vcf
@@ -702,7 +705,7 @@ class Pipeline:
         java_mem = f"-Xmx{max_memory_gb}g"
         
         return [
-            gatk, "--java-options", f'"{java_mem}"', "VariantFiltration",
+            gatk, "--java-options", java_mem, "VariantFiltration",
             "-V", input_vcf,
             "-O", output_vcf,
             "--filter-expression", "QD < 2.0 || FS > 60.0 || MQ < 40.0",
@@ -724,7 +727,7 @@ class Pipeline:
         java_mem = f"-Xmx{max_memory_gb}g"
         
         return [
-            gatk, "--java-options", f'"{java_mem}"', "SelectVariants",
+            gatk, "--java-options", java_mem, "SelectVariants",
             "-V", input_vcf,
             "-O", output_vcf,
             "-select-type", "SNP"
