@@ -376,7 +376,8 @@ class Pipeline:
                 "-R", ref,
                 "-I", bam_file,
                 "-O", output_gvcf,
-                "-ERC", "GVCF"
+                "-ERC", "GVCF",
+                "--sample-name", sample_name
             ]
             cmds.append(' '.join(cmd))
         
