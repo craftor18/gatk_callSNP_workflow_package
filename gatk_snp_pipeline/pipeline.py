@@ -714,13 +714,17 @@ class Pipeline:
         max_memory_gb = int(self.config.get("max_memory", 32))
         java_mem = f"-Xmx{max_memory_gb}g"
         
-        return [
-            gatk, "--java-options", java_mem, "VariantFiltration",
+        # 为过滤表达式添加引号，防止shell特殊字符被误解
+        cmd = [
+            gatk, "--java-options", f'"{java_mem}"', "VariantFiltration",
             "-V", input_vcf,
             "-O", output_vcf,
-            "--filter-expression", "QD < 2.0 || FS > 60.0 || MQ < 40.0",
+            "--filter-expression", '"QD < 2.0 || FS > 60.0 || MQ < 40.0"',
             "--filter-name", "my_filter"
         ]
+        
+        # 返回字符串列表而不是命令列表
+        return [' '.join(cmd)]
     
     def _get_select_snp_cmd(self) -> List[str]:
         """获取选择SNP命令"""
