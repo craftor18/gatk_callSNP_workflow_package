@@ -11,6 +11,14 @@ def random_base() -> str:
     """随机生成一个碱基：A, T, G, C"""
     return random.choice(['A', 'T', 'G', 'C'])
 
+# GC偏好的随机碱基生成器
+def gc_biased_base(gc_content: float = 0.5) -> str:
+    """根据GC含量偏好生成一个碱基"""
+    if random.random() < gc_content:
+        return random.choice(['G', 'C'])
+    else:
+        return random.choice(['A', 'T'])
+
 class TestDataGenerator:
     """测试数据生成器"""
     
@@ -18,12 +26,16 @@ class TestDataGenerator:
         self.output_dir = Path(output_dir)
         self.logger = logger
         
-        # 测试数据参数
-        self.reference_length = 10000  # 参考基因组长度
-        self.chromosome_count = 2      # 染色体数量
-        self.read_length = 100         # 读取长度
-        self.sample_count = 3          # 样本数量
-        self.coverage = 5              # 覆盖度
+        # 测试数据参数 - 改进以更接近真实数据
+        self.reference_length = 50000    # 参考基因组长度增加到50kb
+        self.chromosome_count = 3        # 染色体数量增加到3条
+        self.read_length = 150           # 读取长度增加到150，更接近现代测序技术
+        self.sample_count = 3            # 样本数量
+        self.coverage = 15               # 覆盖度提高到15x，更接近真实数据要求
+        self.snp_rate = 0.03             # SNP变异率提高到3%
+        self.indel_rate = 0.01           # 添加1%的indel变异
+        self.repeat_rate = 0.05          # 添加5%的重复区域
+        self.repeat_length = 20          # 重复序列长度
         
         # 创建输出目录
         self.reference_dir = self.output_dir / "reference"
@@ -66,12 +78,42 @@ class TestDataGenerator:
                 # 染色体名称
                 f.write(f">chr{chrom}\n")
                 
-                # 生成染色体序列
-                sequence = ''.join(random_base() for _ in range(self.reference_length))
+                # 生成染色体序列，添加GC含量变化和重复区域
+                sequence = []
+                
+                current_pos = 0
+                while current_pos < self.reference_length:
+                    # 随机决定当前区块的GC含量
+                    gc_content = random.uniform(0.3, 0.7)
+                    
+                    # 生成区块长度
+                    block_length = min(random.randint(500, 2000), self.reference_length - current_pos)
+                    
+                    # 生成序列
+                    block_seq = ''.join(gc_biased_base(gc_content) for _ in range(block_length))
+                    
+                    # 添加重复区域
+                    if random.random() < self.repeat_rate and current_pos + block_length + self.repeat_length <= self.reference_length:
+                        # 生成重复单元
+                        repeat_unit = ''.join(random_base() for _ in range(random.randint(3, 10)))
+                        repeat_count = random.randint(3, 10)
+                        repeat_seq = repeat_unit * repeat_count
+                        
+                        # 将重复单元插入到区块中
+                        insert_pos = random.randint(0, len(block_seq) - 1)
+                        block_seq = block_seq[:insert_pos] + repeat_seq + block_seq[insert_pos:]
+                        
+                        # 确保不超出总长度
+                        block_seq = block_seq[:self.reference_length - current_pos]
+                    
+                    sequence.append(block_seq)
+                    current_pos += len(block_seq)
+                
+                final_sequence = ''.join(sequence)
                 
                 # 写入序列，每行80个碱基
-                for i in range(0, len(sequence), 80):
-                    f.write(sequence[i:i+80] + '\n')
+                for i in range(0, len(final_sequence), 80):
+                    f.write(final_sequence[i:i+80] + '\n')
         
         self.log(f"参考基因组生成完成: {ref_path}")
         return ref_path
@@ -94,6 +136,9 @@ class TestDataGenerator:
             # 样本文件路径
             sample_path = self.samples_dir / f"{sample_name}.fastq.gz"
             
+            # 为每个样本生成固定的变异位点，确保样本之间的差异
+            sample_variants = self._generate_sample_variants(reference_sequences, sample_idx)
+            
             # 生成FASTQ数据
             with gzip.open(sample_path, 'wt') as f:
                 for read_idx in range(reads_count):
@@ -101,30 +146,136 @@ class TestDataGenerator:
                     chrom = random.choice(list(reference_sequences.keys()))
                     chrom_seq = reference_sequences[chrom]
                     
-                    # 随机选择起始位置
-                    start_pos = random.randint(0, len(chrom_seq) - self.read_length)
+                    # 随机选择起始位置，考虑片段大小
+                    fragment_size = random.randint(300, 500)
+                    start_pos = random.randint(0, len(chrom_seq) - fragment_size)
                     
-                    # 提取序列
-                    read_seq = chrom_seq[start_pos:start_pos + self.read_length]
+                    # 应用预定义的样本变异到片段序列
+                    fragment_seq = chrom_seq[start_pos:start_pos + fragment_size]
+                    modified_fragment = self._apply_variants(chrom, start_pos, fragment_seq, sample_variants)
                     
-                    # 添加随机变异 (SNP)
-                    if random.random() < 0.01:  # 1%的变异率
-                        snp_pos = random.randint(0, len(read_seq) - 1)
-                        base = read_seq[snp_pos]
-                        # 选择一个不同的碱基
-                        new_base = random.choice([b for b in ['A', 'T', 'G', 'C'] if b != base])
-                        read_seq = read_seq[:snp_pos] + new_base + read_seq[snp_pos+1:]
+                    # 从片段中提取正向和反向读数
+                    forward_read = modified_fragment[:self.read_length]
+                    reverse_start = max(0, len(modified_fragment) - self.read_length)
+                    reverse_read = self._reverse_complement(modified_fragment[reverse_start:])
                     
-                    # 生成质量分数
-                    quality = ''.join(chr(random.randint(33, 73)) for _ in range(len(read_seq)))
+                    # 添加测序错误
+                    forward_read, forward_qual = self._add_sequencing_errors(forward_read)
+                    reverse_read, reverse_qual = self._add_sequencing_errors(reverse_read)
                     
-                    # 写入FASTQ格式
-                    f.write(f"@{sample_name}_read_{read_idx}\n")
-                    f.write(f"{read_seq}\n")
+                    # 写入正向读数
+                    f.write(f"@{sample_name}_read_{read_idx*2}\n")
+                    f.write(f"{forward_read}\n")
                     f.write(f"+\n")
-                    f.write(f"{quality}\n")
+                    f.write(f"{forward_qual}\n")
+                    
+                    # 写入反向读数
+                    f.write(f"@{sample_name}_read_{read_idx*2+1}\n")
+                    f.write(f"{reverse_read}\n")
+                    f.write(f"+\n")
+                    f.write(f"{reverse_qual}\n")
             
             self.log(f"样本 {sample_name} 生成完成: {sample_path}")
+    
+    def _generate_sample_variants(self, reference_sequences, sample_idx):
+        """为每个样本生成固定的变异位点集合"""
+        variants = {}
+        
+        # 对每条染色体生成变异
+        for chrom, seq in reference_sequences.items():
+            chrom_variants = []
+            
+            # 生成SNP变异
+            snp_count = int(len(seq) * self.snp_rate)
+            snp_positions = random.sample(range(len(seq)), snp_count)
+            
+            for pos in snp_positions:
+                ref_base = seq[pos]
+                # 确保每个样本有不同的变异
+                alt_base = random.choice([b for b in ['A', 'T', 'G', 'C'] if b != ref_base])
+                # 只有当样本序号是奇数或者位置是奇数时才添加变异，创造样本间差异
+                if sample_idx % 2 == pos % 2:
+                    chrom_variants.append(('SNP', pos, ref_base, alt_base))
+            
+            # 生成Indel变异
+            indel_count = int(len(seq) * self.indel_rate)
+            indel_positions = random.sample(range(len(seq) - 10), indel_count)
+            
+            for pos in indel_positions:
+                if random.random() < 0.5:  # 插入
+                    insert_length = random.randint(1, 5)
+                    insert_seq = ''.join(random_base() for _ in range(insert_length))
+                    if sample_idx % 3 == pos % 3:  # 创造样本间差异
+                        chrom_variants.append(('INS', pos, "", insert_seq))
+                else:  # 删除
+                    del_length = random.randint(1, 5)
+                    if pos + del_length < len(seq):
+                        del_seq = seq[pos:pos+del_length]
+                        if sample_idx % 3 == (pos % 3 + 1) % 3:  # 创造样本间差异
+                            chrom_variants.append(('DEL', pos, del_seq, ""))
+            
+            variants[chrom] = chrom_variants
+        
+        return variants
+    
+    def _apply_variants(self, chrom, start_pos, seq, variants):
+        """将变异应用到给定的序列上"""
+        if chrom not in variants:
+            return seq
+        
+        # 转换为可变对象
+        seq_list = list(seq)
+        
+        # 计算片段覆盖的范围
+        end_pos = start_pos + len(seq)
+        
+        # 应用该区域内的所有变异
+        # 注意：为简化处理，我们从后往前应用变异，避免位置改变问题
+        applicable_variants = [v for v in variants[chrom] 
+                              if start_pos <= v[1] < end_pos]
+        
+        # 按位置降序排列
+        applicable_variants.sort(key=lambda v: v[1], reverse=True)
+        
+        for var_type, pos, ref, alt in applicable_variants:
+            rel_pos = pos - start_pos  # 相对位置
+            
+            if var_type == 'SNP':
+                seq_list[rel_pos] = alt
+            elif var_type == 'INS':
+                seq_list.insert(rel_pos, alt)
+            elif var_type == 'DEL':
+                del_end = min(rel_pos + len(ref), len(seq_list))
+                for i in range(rel_pos, del_end):
+                    if i < len(seq_list):
+                        seq_list[i] = ""
+        
+        return ''.join(seq_list)
+    
+    def _reverse_complement(self, seq):
+        """返回序列的反向互补"""
+        complement = {'A': 'T', 'T': 'A', 'G': 'C', 'C': 'G', 'N': 'N'}
+        return ''.join(complement.get(base, 'N') for base in reversed(seq))
+    
+    def _add_sequencing_errors(self, seq):
+        """添加测序错误并生成质量分数"""
+        result = list(seq)
+        qual = []
+        
+        for i in range(len(result)):
+            # 模拟测序质量随位置下降
+            base_error_rate = 0.001 + (i / len(result)) * 0.01
+            
+            # 随机添加错误
+            if random.random() < base_error_rate:
+                result[i] = random.choice([b for b in ['A', 'T', 'G', 'C'] if b != result[i]])
+                # 低质量分数
+                qual.append(chr(random.randint(33, 40)))
+            else:
+                # 高质量分数
+                qual.append(chr(random.randint(41, 73)))
+        
+        return ''.join(result), ''.join(qual)
     
     def _load_reference(self, reference_path: Path) -> dict:
         """加载参考基因组"""
