@@ -815,14 +815,10 @@ class Pipeline:
         
         output_file = f"{output_dir}/gwas_data.txt"
         
-        # 设置线程数
-        threads = str(self.config.get("threads", 8))
-        
-        # 构建命令
+        # 移除 --threads 参数，因为 bcftools query 不支持该参数
         cmd = [
             bcftools, "query",
             "-f", "%CHROM\\t%POS\\t%REF\\t%ALT[\\t%GT]\\n",
-            "--threads", threads,
             input_vcf,
             ">", output_file
         ]
