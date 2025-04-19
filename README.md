@@ -95,10 +95,12 @@ gatk-snp-pipeline init --config config.yaml
 reference: /path/to/your/reference.fasta
 samples_dir: /path/to/your/samples
 output_dir: results
+sequencing_type: paired
 
 # 推荐设置
 threads: 8
 max_memory: 16
+memory_per_thread: 2
 ```
 
 ### 查看可用步骤
@@ -115,20 +117,20 @@ gatk-snp-pipeline list-steps
 ```
 可用的流程步骤:
 ------------------------------------------------------------
-步骤名称        描述                                        
+步骤名称        描述                                      
 ------------------------------------------------------------
-ref_index       参考基因组索引                              
-bwa_map         BWA比对                                    
-sort_sam        排序SAM文件                                
-mark_duplicates 标记重复序列                                
-index_bam       索引BAM文件                                
-haplotype_caller GATK HaplotypeCaller                      
-combine_gvcfs   合并GVCF文件                               
-genotype_gvcfs  基因型分型                                  
-vcf_filter      VCF过滤                                    
-select_snp      选择SNP                                    
-soft_filter_snp SNP软过滤                                  
-get_gwas_data   获取GWAS数据                               
+ref_index       参考基因组索引                            
+bwa_map         BWA比对                                  
+sort_sam        排序SAM文件                              
+mark_duplicates 标记重复序列                              
+index_bam       索引BAM文件                              
+haplotype_caller GATK HaplotypeCaller                    
+combine_gvcfs   合并GVCF文件                             
+genotype_gvcfs  基因型分型                                
+vcf_filter      VCF过滤                                  
+select_snp      选择SNP                                  
+soft_filter_snp SNP软过滤                                
+get_gwas_data   获取GWAS数据                             
 ```
 
 ### 运行特定步骤
@@ -159,6 +161,7 @@ gatk-snp-pipeline run --config config.yaml
 ```
 
 流程将按照以下顺序执行所有步骤：
+
 1. 参考基因组索引
 2. BWA比对
 3. SAM文件排序
@@ -213,151 +216,87 @@ gatk-snp-pipeline convert --input results/snps.vcf --output results/snps.bed --f
 
 ## 测试模式
 
-本程序内置了测试数据生成功能，可以生成模拟的参考基因组和测序数据，便于验证流程是否正常工作。
+本程序内置了测试数据生成功能，可以生成模拟的参考基因组和测序数据，便于验证流程是否正常工作。支持生成单端测序和双端测序两种类型的测试数据。
 
 ### 生成测试数据
 
 ```bash
-# 生成测试数据
-gatk-snp-pipeline generate-test-data --output-dir test_data
+# 生成单端测序测试数据（默认）
+gatk-snp-pipeline generate-test-data --output-dir test_data_single --sequencing-type single
+
+# 生成双端测序测试数据
+gatk-snp-pipeline generate-test-data --output-dir test_data_paired --sequencing-type paired
 
 # 生成测试数据并创建配置文件
-gatk-snp-pipeline generate-test-data --output-dir test_data --create-config test_config.yaml
+gatk-snp-pipeline generate-test-data --output-dir test_data_single --sequencing-type single --create-config test_config_single.yaml
+gatk-snp-pipeline generate-test-data --output-dir test_data_paired --sequencing-type paired --create-config test_config_paired.yaml
 ```
 
 测试数据包括：
+
 - 小型模拟参考基因组（约10KB）
-- 3个模拟样本的FASTQ文件（每个约5K-10K条读长）
+- 3个模拟样本的FASTQ文件
+  - 单端测序：每个样本一个FASTQ文件 (sample_1.fastq.gz)
+  - 双端测序：每个样本两个FASTQ文件 (sample_1_R1.fastq.gz, sample_1_R2.fastq.gz)
 - 带有少量SNP和其他变异的序列
-
-以下是实际运行生成测试数据的输出示例：
-
-```
-开始生成测试数据...
-2025-04-19 22:49:51,958 - gatk_snp_pipeline - INFO - 开始生成测试数据
-2025-04-19 22:49:51,959 - gatk_snp_pipeline - INFO - 生成参考基因组
-2025-04-19 22:49:52,047 - gatk_snp_pipeline - INFO - 参考基因组生成完成: test_data/reference/reference.fasta
-2025-04-19 22:49:52,048 - gatk_snp_pipeline - INFO - 生成样本测序数据
-2025-04-19 22:49:52,049 - gatk_snp_pipeline - INFO - 生成样本: sample_1
-2025-04-19 22:49:58,185 - gatk_snp_pipeline - INFO - 样本 sample_1 生成完成: test_data/samples/sample_1.fastq.gz
-2025-04-19 22:49:58,186 - gatk_snp_pipeline - INFO - 生成样本: sample_2
-2025-04-19 22:50:04,556 - gatk_snp_pipeline - INFO - 样本 sample_2 生成完成: test_data/samples/sample_2.fastq.gz
-2025-04-19 22:50:04,557 - gatk_snp_pipeline - INFO - 生成样本: sample_3
-2025-04-19 22:50:10,805 - gatk_snp_pipeline - INFO - 样本 sample_3 生成完成: test_data/samples/sample_3.fastq.gz
-2025-04-19 22:50:10,807 - gatk_snp_pipeline - INFO - 测试数据生成完成: 参考基因组位于 test_data/reference/reference.fasta, 样本数据位于 test_data/samples
-默认配置文件已生成: test_config.yaml
-请编辑配置文件，设置参考基因组和样本目录等必要参数。
-测试数据配置文件已创建: test_config.yaml
-测试数据生成完成！参考基因组: test_data/reference/reference.fasta, 样本目录: test_data/samples
-```
 
 ### 测试模式运行
 
 测试模式会自动生成测试数据并运行完整流程，无需额外提供参考基因组和样本:
 
 ```bash
-# 测试模式运行
-gatk-snp-pipeline run --test-mode
+# 单端测序测试模式（默认）
+gatk-snp-pipeline run --test-mode --test-sequencing-type single
+
+# 双端测序测试模式
+gatk-snp-pipeline run --test-mode --test-sequencing-type paired
 ```
 
 或者使用已有的测试配置文件：
 
 ```bash
-# 使用已有的测试配置文件
-gatk-snp-pipeline run --config test_config.yaml
+# 使用单端测序测试配置文件
+gatk-snp-pipeline run --config test_config_single.yaml
+
+# 使用双端测序测试配置文件
+gatk-snp-pipeline run --config test_config_paired.yaml
 ```
 
-以下是使用测试配置文件运行完整流程的实际输出示例（简化版）：
+### 单端和双端测序的区别
+
+- **单端测序**：每个样本只有一个FASTQ文件，包含从DNA片段一端读取的序列。
+- **双端测序**：每个样本有两个FASTQ文件（R1和R2），分别包含从DNA片段两端读取的序列。
+
+在进行BWA比对时，软件会根据配置文件中的`sequencing_type`参数自动选择合适的比对命令：
+
+- 单端测序：`bwa mem -t <threads> -R '<read_group>' <ref> <sample.fastq.gz>`
+- 双端测序：`bwa mem -t <threads> -R '<read_group>' <ref> <sample_R1.fastq.gz> <sample_R2.fastq.gz>`
+
+以下是单端和双端测序测试数据的命令行输出示例：
 
 ```
-2025-04-19 22:50:36,445 - gatk_snp_pipeline - INFO - 使用配置文件: test_data/test_config.yaml
-2025-04-19 22:50:36,446 - gatk_snp_pipeline - INFO - 检查依赖...
-# 依赖检查输出...
-2025-04-19 22:50:36,446 - gatk_snp_pipeline - INFO - 依赖检查通过
-2025-04-19 22:50:36,453 - gatk_snp_pipeline - INFO - 系统资源信息: CPU总核数=80, 物理核数=40, 内存=125.4GB
-2025-04-19 22:50:36,453 - gatk_snp_pipeline - INFO - 设置最大内存使用: 16.0GB
-2025-04-19 22:50:36,453 - gatk_snp_pipeline - INFO - 每线程内存分配: 2GB
-2025-04-19 22:50:36,453 - gatk_snp_pipeline - INFO - 运行完整流程
-2025-04-19 22:50:36,453 - gatk_snp_pipeline - INFO - 开始运行完整流程
-
-# 步骤1: 参考基因组索引
-2025-04-19 22:50:36,454 - gatk_snp_pipeline - INFO - 开始执行步骤: 参考基因组索引
-# 命令执行...
-2025-04-19 22:50:42,005 - gatk_snp_pipeline - INFO - 步骤 ref_index 执行成功
-
-# 步骤2: BWA比对
-2025-04-19 22:50:42,008 - gatk_snp_pipeline - INFO - 开始执行步骤: BWA比对
-# 命令执行...
-2025-04-19 22:50:44,570 - gatk_snp_pipeline - INFO - 步骤 bwa_map 执行成功
-
-# 步骤3: 排序SAM文件
-2025-04-19 22:50:44,572 - gatk_snp_pipeline - INFO - 开始执行步骤: 排序SAM文件
-# 命令执行...
-2025-04-19 22:50:45,459 - gatk_snp_pipeline - INFO - 步骤 sort_sam 执行成功
-
-# 步骤4: 标记重复序列
-2025-04-19 22:50:45,462 - gatk_snp_pipeline - INFO - 开始执行步骤: 标记重复序列
-# 命令执行...
-2025-04-19 22:51:58,947 - gatk_snp_pipeline - INFO - 步骤 mark_duplicates 执行成功
-
-# 步骤5: 索引BAM文件
-2025-04-19 22:51:58,948 - gatk_snp_pipeline - INFO - 开始执行步骤: 索引BAM文件
-# 命令执行...
-2025-04-19 22:51:59,063 - gatk_snp_pipeline - INFO - 步骤 index_bam 执行成功
-
-# 步骤6: 变异位点检测
-2025-04-19 22:51:59,064 - gatk_snp_pipeline - INFO - 开始执行步骤: GATK HaplotypeCaller
-# 命令执行...
-2025-04-19 22:55:42,403 - gatk_snp_pipeline - INFO - 步骤 haplotype_caller 执行成功
-
-# 步骤7: 合并GVCF文件
-2025-04-19 22:55:42,404 - gatk_snp_pipeline - INFO - 开始执行步骤: 合并GVCF文件
-# 命令执行...
-2025-04-19 22:55:58,411 - gatk_snp_pipeline - INFO - 步骤 combine_gvcfs 执行成功
-
-# 步骤8: 基因型分型
-2025-04-19 22:55:58,414 - gatk_snp_pipeline - INFO - 开始执行步骤: 基因型分型
-# 命令执行...
-2025-04-19 22:56:27,269 - gatk_snp_pipeline - INFO - 步骤 genotype_gvcfs 执行成功
-
-# 步骤9: VCF过滤
-2025-04-19 22:56:27,272 - gatk_snp_pipeline - INFO - 开始执行步骤: VCF过滤
-# 命令执行...
-2025-04-19 22:56:39,460 - gatk_snp_pipeline - INFO - 步骤 vcf_filter 执行成功
-
-# 步骤10: 选择SNP
-2025-04-19 22:56:39,461 - gatk_snp_pipeline - INFO - 开始执行步骤: 选择SNP
-# 命令执行...
-2025-04-19 22:56:48,712 - gatk_snp_pipeline - INFO - 步骤 select_snp 执行成功
-
-# 步骤11: SNP软过滤
-2025-04-19 22:56:48,715 - gatk_snp_pipeline - INFO - 开始执行步骤: SNP软过滤
-# 命令执行...
-2025-04-19 22:56:48,846 - gatk_snp_pipeline - INFO - 步骤 soft_filter_snp 执行成功
-
-# 步骤12: 获取GWAS数据
-2025-04-19 22:56:48,847 - gatk_snp_pipeline - INFO - 开始执行步骤: 获取GWAS数据
-2025-04-19 22:56:48,847 - gatk_snp_pipeline - WARNING - 注意: bcftools query 命令不支持 --threads 选项，确保命令执行时不会添加此参数
-2025-04-19 22:56:48,848 - gatk_snp_pipeline - INFO - 使用软过滤SNP文件: test_data/results/soft_filtered_snps.recode.vcf
-# 命令执行...
-2025-04-19 22:56:49,038 - gatk_snp_pipeline - INFO - 步骤 get_gwas_data 执行成功
-
-# 流程完成
-2025-04-19 22:56:49,039 - gatk_snp_pipeline - INFO - 流程执行完成
-2025-04-19 22:56:49,049 - gatk_snp_pipeline - INFO - 分析摘要报告已生成: test_data/results/summary_report.txt
-2025-04-19 22:56:49,050 - gatk_snp_pipeline - INFO - 流程执行成功
+开始生成测试数据...
+2025-04-19 22:49:51,958 - gatk_snp_pipeline - INFO - 开始生成测试数据
+2025-04-19 22:49:51,959 - gatk_snp_pipeline - INFO - 生成参考基因组
+2025-04-19 22:49:52,047 - gatk_snp_pipeline - INFO - 参考基因组生成完成: test_data_single/reference/reference.fasta
+2025-04-19 22:49:52,048 - gatk_snp_pipeline - INFO - 生成样本测序数据
+2025-04-19 22:49:52,049 - gatk_snp_pipeline - INFO - 生成样本: sample_1
+2025-04-19 22:49:58,185 - gatk_snp_pipeline - INFO - 样本 sample_1 生成完成: test_data_single/samples/sample_1.fastq.gz
+2025-04-19 22:49:58,186 - gatk_snp_pipeline - INFO - 生成样本: sample_2
+2025-04-19 22:50:04,556 - gatk_snp_pipeline - INFO - 样本 sample_2 生成完成: test_data_single/samples/sample_2.fastq.gz
+2025-04-19 22:50:04,557 - gatk_snp_pipeline - INFO - 生成样本: sample_3
+2025-04-19 22:50:10,805 - gatk_snp_pipeline - INFO - 样本 sample_3 生成完成: test_data_single/samples/sample_3.fastq.gz
+2025-04-19 22:50:10,807 - gatk_snp_pipeline - INFO - 测试数据生成完成: 参考基因组位于 test_data_single/reference/reference.fasta, 样本数据位于 test_data_single/samples
+默认配置文件已生成: test_config_single.yaml
+请编辑配置文件，设置参考基因组和样本目录等必要参数。
+测试数据配置文件已创建: test_config_single.yaml
+测试数据生成完成！参考基因组: test_data_single/reference/reference.fasta, 样本目录: test_data_single/samples
 ```
-
-测试模式生成的数据量小，可以迅速验证整个流程的功能，适合以下场景:
-
-1. 验证软件安装和依赖配置是否正确
-2. 测试新增功能或修改后的流程
-3. 快速演示流程的工作方式
-4. 培训和教学
 
 ### 实际示例的运行时间
 
 从上面的测试输出可以看到，使用测试数据运行完整流程的实际用时：
+
 - 参考基因组索引：约6秒
 - BWA比对：约2.5秒
 - SAM文件排序：约1秒
@@ -379,10 +318,10 @@ gatk-snp-pipeline run --config test_config.yaml
 
 ```bash
 # 1. 生成测试数据和配置文件
-gatk-snp-pipeline generate-test-data --output-dir test_data --create-config test_config.yaml
+gatk-snp-pipeline generate-test-data --output-dir test_data_single --sequencing-type single --create-config test_config_single.yaml
 
 # 2. 一步运行完整流程(所有步骤)
-gatk-snp-pipeline run --config test_config.yaml
+gatk-snp-pipeline run --config test_config_single.yaml
 ```
 
 ## 断点续运行功能
@@ -395,6 +334,7 @@ gatk-snp-pipeline run --config config.yaml --resume
 ```
 
 断点续运行功能会：
+
 1. 自动记录已完成的步骤
 2. 在中断后重新启动时跳过已完成的步骤
 3. 从上次中断的步骤继续执行
@@ -440,7 +380,6 @@ gatk-snp-pipeline run --config config.yaml --quiet
 流程中使用的一些工具具有特定的兼容性要求：
 
 1. **BCFtools**：在`get_gwas_data`步骤中，BCFtools的`query`命令**不支持**`--threads`选项。流程已自动处理此问题，不会向命令添加线程参数。
-
 2. **VCFtools**：在`soft_filter_snp`步骤中，VCFtools的某些版本不支持`--threads`和`--geno`选项。
 
 如果在运行过程中遇到工具兼容性问题，可以查看日志文件以获取详细错误信息，同时流程会尝试自适应调整命令参数以适应不同版本的工具。
@@ -454,6 +393,7 @@ gatk-snp-pipeline run --config config.yaml --quiet
 reference: path/to/reference.fasta         # 参考基因组路径（必需）
 samples_dir: path/to/samples               # 样本目录路径（必需）
 output_dir: results                        # 输出目录（必需）
+sequencing_type: paired                    # 测序类型：paired(双端测序)或single(单端测序)，默认为paired
 
 # 性能参数
 threads: 8                                 # 线程数
@@ -521,7 +461,10 @@ variant_filter:
 - 命名：每个样本应有唯一的前缀，如 sample1.fastq.gz
 - 支持的压缩：gzip
 - 目录结构：所有FASTQ文件应位于配置文件中指定的samples_dir目录下
-- 测序类型：目前优化支持Illumina双端或单端测序数据
+- 测序类型：支持Illumina双端或单端测序数据
+  - 双端测序数据：文件名格式为`*_R1*.fastq.gz`和`*_R2*.fastq.gz`（如`sample1_R1.fastq.gz`和`sample1_R2.fastq.gz`）
+  - 单端测序数据：文件名格式为`*.fastq.gz`（如`sample1.fastq.gz`）
+- 配置设置：在配置文件中通过`sequencing_type`参数指定测序类型（"paired"或"single"）
 
 ## 输出文件说明
 
@@ -555,10 +498,10 @@ variant_filter:
 
 运行信息:
 日期时间: 2025-04-19 22:56:49
-配置文件: test_data/test_config.yaml
-参考基因组: test_data/reference/reference.fasta
-样本目录: test_data/samples
-输出目录: test_data/results
+配置文件: test_data_single/test_config_single.yaml
+参考基因组: test_data_single/reference/reference.fasta
+样本目录: test_data_single/samples
+输出目录: test_data_single/results
 
 统计信息:
 样本数量: 3
@@ -606,6 +549,7 @@ variant_filter:
 ### 1. ref_index: 参考基因组索引
 
 创建参考基因组的多种索引，用于后续分析：
+
 - BWA索引（用于序列比对）
 - GATK序列字典（.dict文件）
 - FASTA索引（.fai文件）
@@ -613,6 +557,7 @@ variant_filter:
 ### 2. bwa_map: 序列比对
 
 使用BWA mem算法将FASTQ格式的测序数据比对到参考基因组：
+
 - 添加读组信息（@RG标签）
 - 标记短分割比对（-M参数）
 - 每个样本输出一个SAM文件
@@ -620,6 +565,7 @@ variant_filter:
 ### 3. sort_sam: SAM文件排序
 
 将SAM文件转换为排序后的BAM格式：
+
 - 使用samtools进行排序
 - 按照坐标排序
 - 输出.sorted.bam文件
@@ -627,6 +573,7 @@ variant_filter:
 ### 4. mark_duplicates: 标记重复序列
 
 使用GATK MarkDuplicates标记PCR和光学重复：
+
 - 默认不移除重复序列，仅标记
 - 生成重复标记指标文件
 - 输出.dedup.bam文件
@@ -634,30 +581,35 @@ variant_filter:
 ### 5. index_bam: BAM索引
 
 为排序后的BAM文件创建索引：
+
 - 使用samtools index命令
 - 生成.bai索引文件
 
 ### 6. haplotype_caller: 变异位点检测
 
 使用GATK HaplotypeCaller检测变异：
+
 - 使用GVCF模式（--emit-ref-confidence GVCF）
 - 每个样本生成一个.g.vcf文件
 
 ### 7. combine_gvcfs: 合并GVCF文件
 
 将多个样本的GVCF文件合并为一个文件：
+
 - 使用GATK CombineGVCFs
 - 输出combined.vcf文件
 
 ### 8. genotype_gvcfs: 基因型分型
 
 对合并的GVCF文件进行基因型分型：
+
 - 使用GATK GenotypeGVCFs
 - 输出genotyped.vcf文件
 
 ### 9. vcf_filter: VCF过滤
 
 对变异位点应用质量过滤器：
+
 - 使用GATK VariantFiltration
 - 应用配置文件中定义的过滤条件
 - 输出filtered.vcf文件
@@ -665,12 +617,14 @@ variant_filter:
 ### 10. select_snp: 选择SNP
 
 从过滤后的VCF文件中提取SNP变异：
+
 - 使用GATK SelectVariants
 - 输出snps.vcf文件
 
 ### 11. soft_filter_snp: SNP软过滤
 
 使用VCFtools对SNP应用更多过滤条件：
+
 - 根据缺失率过滤（--max-missing）
 - 根据最小等位基因频率过滤（--maf）
 - 输出soft_filtered_snps.recode.vcf文件
@@ -678,6 +632,7 @@ variant_filter:
 ### 12. get_gwas_data: 获取GWAS数据
 
 将VCF文件转换为GWAS分析所需的格式：
+
 - 使用BCFtools query提取必要的字段
 - 输出gwas_data.txt文件
 - **注意**: BCFtools的query命令不支持--threads选项
@@ -689,6 +644,7 @@ variant_filter:
 **问题**：运行`check-deps`命令时报错，无法找到某些软件。
 
 **解决方案**：
+
 - 确保所有必需软件已安装并在PATH中
 - 在配置文件的`software`部分指定完整路径
 - 使用`--skip-deps`选项跳过依赖检查
@@ -698,6 +654,7 @@ variant_filter:
 **问题**：GATK工具报告内存不足错误。
 
 **解决方案**：
+
 - 减少`threads`值
 - 增加`max_memory`值
 - 确保系统有足够的可用内存
@@ -707,6 +664,7 @@ variant_filter:
 **问题**：流程报错找不到输入文件。
 
 **解决方案**：
+
 - 检查配置文件中的路径是否正确
 - 确保FASTQ文件位于`samples_dir`目录下
 - 验证文件名格式是否正确
@@ -716,6 +674,7 @@ variant_filter:
 **问题**：在`get_gwas_data`步骤报错"unrecognized option '--threads'"。
 
 **解决方案**：
+
 - 此问题已在v4版本中修复
 - BCFtools的query命令不支持--threads选项
 - 更新到最新版本的软件包
@@ -726,7 +685,7 @@ variant_filter:
 
 ## 作者
 
-Craftor
+Craftor18
 
 ## 致谢
 

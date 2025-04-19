@@ -1,0 +1,3 @@
+output_dir: test_data\results
+reference: test_data\reference\reference.fasta
+samples_dir: test_data\samples
