@@ -1,3 +1,0 @@
-output_dir: binary_test/test_data
-reference: binary_test\test_data\reference\reference.fasta
-samples_dir: binary_test\test_data\samples
