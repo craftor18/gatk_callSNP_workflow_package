@@ -46,3 +46,12 @@ dist/
 # 系统文件
 .DS_Store
 Thumbs.db 
+
+# 测试数据
+test_data/
+binary_test/
+binary_test_mode/
+test_config.yaml
+
+# 其他临时文件
+tatus -s 
