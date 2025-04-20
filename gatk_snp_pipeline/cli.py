@@ -129,6 +129,16 @@ def run_pipeline(args):
         print(f"测试数据已生成，使用配置文件: {args.config}")
     
     # 检查配置文件是否存在
+    if not args.config:
+        if test_mode:
+            # 测试模式下已生成配置文件，不应该出现这种情况
+            print("错误: 测试模式生成配置文件失败")
+            sys.exit(1)
+        else:
+            # 非测试模式下必须提供配置文件
+            print("错误: 必须提供配置文件路径 (--config)")
+            sys.exit(1)
+    
     if not os.path.isfile(args.config):
         print(f"错误: 配置文件不存在: {args.config}")
         sys.exit(1)
@@ -310,8 +320,8 @@ def main():
     )
     run_parser.add_argument(
         "--config",
-        required=True,
-        help="配置文件路径"
+        required=False,
+        help="配置文件路径，测试模式下可省略"
     )
     run_parser.add_argument(
         "--step",

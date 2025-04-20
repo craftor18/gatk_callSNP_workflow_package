@@ -218,111 +218,58 @@ gatk-snp-pipeline convert --input results/snps.vcf --output results/snps.bed --f
 
 本程序内置了测试数据生成功能，可以生成模拟的参考基因组和测序数据，便于验证流程是否正常工作。支持生成单端测序和双端测序两种类型的测试数据。
 
-### 生成测试数据
+### 方式一：直接运行测试（推荐）
+
+最简单的方式是使用内置的测试模式，它会自动生成测试数据并运行完整流程，无需手动创建配置文件：
 
 ```bash
-# 生成单端测序测试数据（默认）
-gatk-snp-pipeline generate-test-data --output-dir test_data_single --sequencing-type single
+# 使用单端测序数据运行测试（默认）
+gatk-snp-pipeline run --test-mode
 
-# 生成双端测序测试数据
-gatk-snp-pipeline generate-test-data --output-dir test_data_paired --sequencing-type paired
-
-# 生成测试数据并创建配置文件
-gatk-snp-pipeline generate-test-data --output-dir test_data_single --sequencing-type single --create-config test_config_single.yaml
-gatk-snp-pipeline generate-test-data --output-dir test_data_paired --sequencing-type paired --create-config test_config_paired.yaml
-```
-
-测试数据包括：
-
-- 小型模拟参考基因组（约10KB）
-- 3个模拟样本的FASTQ文件
-  - 单端测序：每个样本一个FASTQ文件 (sample_1.fastq.gz)
-  - 双端测序：每个样本两个FASTQ文件 (sample_1_R1.fastq.gz, sample_1_R2.fastq.gz)
-- 带有少量SNP和其他变异的序列
-
-### 测试模式运行
-
-测试模式会自动生成测试数据并运行完整流程，无需额外提供参考基因组和样本:
-
-```bash
-# 单端测序测试模式（默认）
-gatk-snp-pipeline run --test-mode --test-sequencing-type single
-
-# 双端测序测试模式
+# 使用双端测序数据运行测试
 gatk-snp-pipeline run --test-mode --test-sequencing-type paired
 ```
 
-或者使用已有的测试配置文件：
+这些命令会：
+1. 自动在当前目录创建 `test_data` 文件夹
+2. 生成测试用的参考基因组和样本数据
+3. 创建适当的配置文件
+4. 自动运行完整的分析流程
+
+### 方式二：分步操作
+
+如果需要更灵活的控制，也可以分步操作：
+
+#### 1. 先生成测试数据
 
 ```bash
-# 使用单端测序测试配置文件
-gatk-snp-pipeline run --config test_config_single.yaml
+# 生成单端测序测试数据
+gatk-snp-pipeline generate-test-data --output-dir test_single --sequencing-type single --create-config test_single.yaml
 
-# 使用双端测序测试配置文件
-gatk-snp-pipeline run --config test_config_paired.yaml
+# 生成双端测序测试数据
+gatk-snp-pipeline generate-test-data --output-dir test_paired --sequencing-type paired --create-config test_paired.yaml
 ```
 
-### 单端和双端测序的区别
-
-- **单端测序**：每个样本只有一个FASTQ文件，包含从DNA片段一端读取的序列。
-- **双端测序**：每个样本有两个FASTQ文件（R1和R2），分别包含从DNA片段两端读取的序列。
-
-在进行BWA比对时，软件会根据配置文件中的`sequencing_type`参数自动选择合适的比对命令：
-
-- 单端测序：`bwa mem -t <threads> -R '<read_group>' <ref> <sample.fastq.gz>`
-- 双端测序：`bwa mem -t <threads> -R '<read_group>' <ref> <sample_R1.fastq.gz> <sample_R2.fastq.gz>`
-
-以下是单端和双端测序测试数据的命令行输出示例：
-
-```
-开始生成测试数据...
-2025-04-19 22:49:51,958 - gatk_snp_pipeline - INFO - 开始生成测试数据
-2025-04-19 22:49:51,959 - gatk_snp_pipeline - INFO - 生成参考基因组
-2025-04-19 22:49:52,047 - gatk_snp_pipeline - INFO - 参考基因组生成完成: test_data_single/reference/reference.fasta
-2025-04-19 22:49:52,048 - gatk_snp_pipeline - INFO - 生成样本测序数据
-2025-04-19 22:49:52,049 - gatk_snp_pipeline - INFO - 生成样本: sample_1
-2025-04-19 22:49:58,185 - gatk_snp_pipeline - INFO - 样本 sample_1 生成完成: test_data_single/samples/sample_1.fastq.gz
-2025-04-19 22:49:58,186 - gatk_snp_pipeline - INFO - 生成样本: sample_2
-2025-04-19 22:50:04,556 - gatk_snp_pipeline - INFO - 样本 sample_2 生成完成: test_data_single/samples/sample_2.fastq.gz
-2025-04-19 22:50:04,557 - gatk_snp_pipeline - INFO - 生成样本: sample_3
-2025-04-19 22:50:10,805 - gatk_snp_pipeline - INFO - 样本 sample_3 生成完成: test_data_single/samples/sample_3.fastq.gz
-2025-04-19 22:50:10,807 - gatk_snp_pipeline - INFO - 测试数据生成完成: 参考基因组位于 test_data_single/reference/reference.fasta, 样本数据位于 test_data_single/samples
-默认配置文件已生成: test_config_single.yaml
-请编辑配置文件，设置参考基因组和样本目录等必要参数。
-测试数据配置文件已创建: test_config_single.yaml
-测试数据生成完成！参考基因组: test_data_single/reference/reference.fasta, 样本目录: test_data_single/samples
-```
-
-### 实际示例的运行时间
-
-从上面的测试输出可以看到，使用测试数据运行完整流程的实际用时：
-
-- 参考基因组索引：约6秒
-- BWA比对：约2.5秒
-- SAM文件排序：约1秒
-- 标记重复序列：约73秒
-- BAM文件索引：约0.1秒
-- 变异位点检测：约223秒
-- 合并GVCF文件：约16秒
-- 基因型分型：约29秒
-- VCF过滤：约12秒
-- 选择SNP：约9秒
-- SNP软过滤：约0.1秒
-- 获取GWAS数据：约0.2秒
-
-整个流程总用时约6分钟，这在普通服务器上是非常快的，适合快速验证。真实数据集处理时间会更长，取决于数据规模和系统性能。
-
-### 测试流程示例
-
-以下是使用模拟数据运行完整测试流程的示例命令：
+#### 2. 使用生成的配置文件运行测试
 
 ```bash
-# 1. 生成测试数据和配置文件
-gatk-snp-pipeline generate-test-data --output-dir test_data_single --sequencing-type single --create-config test_config_single.yaml
+# 使用单端测序配置运行
+gatk-snp-pipeline run --config test_single.yaml
 
-# 2. 一步运行完整流程(所有步骤)
-gatk-snp-pipeline run --config test_config_single.yaml
+# 使用双端测序配置运行
+gatk-snp-pipeline run --config test_paired.yaml
 ```
+
+### 测试数据内容
+
+测试数据包括：
+- 小型模拟参考基因组（约50KB，包含3个染色体）
+- 3个模拟样本的FASTQ文件：
+  - **单端测序**：每个样本一个文件，如 `sample_1.fastq.gz`
+  - **双端测序**：每个样本两个文件，如 `sample_1_R1.fastq.gz` 和 `sample_1_R2.fastq.gz`
+- 包含SNP和Indel变异的序列
+
+> **注意**：测试数据处理和实际数据处理使用相同的流水线代码。唯一的区别是测试数据的规模较小，便于快速验证流程。单端和双端测序数据的处理会根据配置文件中的 `sequencing_type` 参数自动选择合适的命令。
 
 ## 断点续运行功能
 
