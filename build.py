@@ -110,6 +110,16 @@ def check_dependencies() -> None:
     try:
         import PyInstaller
         logger.info(f"PyInstaller version: {PyInstaller.__version__}")
+        
+        # 自动卸载 pathlib
+        try:
+            import subprocess
+            subprocess.run([sys.executable, "-m", "pip", "uninstall", "-y", "pathlib"], 
+                         check=False, capture_output=True)
+            logger.info("Attempted to uninstall pathlib package")
+        except Exception as e:
+            logger.warning(f"Failed to uninstall pathlib: {e}")
+            
     except ImportError:
         logger.error("PyInstaller not found. Please install it first: pip install pyinstaller")
         raise BuildError("Missing PyInstaller dependency")
