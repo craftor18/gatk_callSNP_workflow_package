@@ -77,7 +77,6 @@ def get_platform_specific_params() -> Dict[str, Any]:
             'psutil',
             'yaml',
             'argparse',
-            'pathlib',
             'typing'
         ]
     }
