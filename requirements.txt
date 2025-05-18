@@ -1,7 +1,7 @@
 # Python包依赖
-pyyaml>=6.0
-setuptools>=45.0.0
-wheel>=0.34.0
+pyyaml>=5.1.0
+setuptools>=42.0.0
+wheel>=0.37.0
 psutil>=5.8.0
 
 # 生物信息学软件依赖
@@ -19,4 +19,33 @@ psutil>=5.8.0
 # - multiqc
 
 # 需要手动安装的软件：
-# - bwa-mem2 (https://github.com/bwa-mem2/bwa-mem2) 
+# - bwa-mem2 (https://github.com/bwa-mem2/bwa-mem2)
+
+# 核心依赖
+typing-extensions>=3.7.4
+pathlib>=1.0.1
+argparse>=1.4.0
+
+# 构建工具
+pyinstaller>=4.5.0
+
+# 测试工具
+pytest>=6.2.5
+pytest-cov>=2.12.0
+pytest-mock>=3.6.0
+
+# 开发工具
+black>=21.5b2
+flake8>=3.9.0
+mypy>=0.910
+isort>=5.9.0
+
+# 文档工具
+sphinx>=4.0.0
+sphinx-rtd-theme>=0.5.0
+recommonmark>=0.7.0
+
+# 可选依赖
+numpy>=1.19.0  # 用于数据处理
+pandas>=1.2.0  # 用于数据分析
+matplotlib>=3.3.0  # 用于数据可视化 
