@@ -14,6 +14,7 @@
 - [快速开始 / Quick Start](#quick-start)
 - [详细使用指南 / Detailed Guide](#detailed-guide)
 - [流程步骤说明 / Pipeline Steps](#pipeline-steps)
+- [真实项目示例 / Real Project Example](#real-project-example)
 - [常见问题 / FAQ](#faq)
 - [系统要求 / System Requirements](#system-requirements)
 - [许可证 / License](#license)
@@ -185,6 +186,116 @@ gatk-snp-pipeline run --config config.yaml --step get_gwas_data
 ```
 - 生成GWAS分析所需的数据格式
 - 准备表型数据关联
+
+## 真实项目示例 / Real Project Example
+
+以下是一个真实项目的示例，展示了完整的目录结构和运行步骤。
+
+### 项目目录结构 / Project Directory Structure
+
+```
+/home/liudong/tianyu/
+├── config.yaml                # 配置文件
+├── datas/                     # 原始数据目录
+│   ├── YXS1202BB_1_*.fastq.gz # 样本1的测序数据
+│   └── YXS1202BB_2_*.fastq.gz # 样本2的测序数据
+├── input_datas/              # 输入数据目录
+├── logs/                     # 日志文件目录
+├── ref/                      # 参考基因组目录
+│   ├── paddy_fish.fa         # 参考基因组文件
+│   ├── paddy_fish.fa.amb     # BWA索引文件
+│   ├── paddy_fish.fa.ann     # BWA索引文件
+│   ├── paddy_fish.fa.bwt     # BWA索引文件
+│   ├── paddy_fish.fa.fai     # FASTA索引文件
+│   ├── paddy_fish.fa.pac     # BWA索引文件
+│   ├── paddy_fish.fa.sa      # BWA索引文件
+│   └── paddy_fish.dict       # 参考基因组字典文件
+├── results/                  # 结果输出目录
+└── *.log                     # 各步骤的日志文件
+```
+
+### 配置文件示例 / Configuration Example
+
+```yaml
+# 必需参数
+reference: /home/liudong/tianyu/ref/paddy_fish.fa
+samples_dir: /home/liudong/tianyu/input_datas
+output_dir: results
+sequencing_type: paired
+
+# 推荐设置
+threads: 32
+max_memory: 128
+memory_per_thread: 2
+```
+
+### 运行步骤 / Running Steps
+
+1. 参考基因组索引：
+```bash
+gatk-snp-pipeline run --config config.yaml --step ref_index
+# 生成文件：paddy_fish.fa.amb, paddy_fish.fa.ann, paddy_fish.fa.bwt, paddy_fish.fa.pac, paddy_fish.fa.sa, paddy_fish.fa.fai, paddy_fish.dict
+```
+
+2. BWA比对：
+```bash
+gatk-snp-pipeline run --config config.yaml --step bwa_map
+# 输入：YXS1202BB_1_*.fastq.gz, YXS1202BB_2_*.fastq.gz
+# 输出：results/bwa_map/*.sam
+```
+
+3. SAM文件排序：
+```bash
+gatk-snp-pipeline run --config config.yaml --step sort_sam
+# 输入：results/bwa_map/*.sam
+# 输出：results/sort_sam/*.sorted.bam
+```
+
+4. 标记重复序列：
+```bash
+gatk-snp-pipeline run --config config.yaml --step mark_duplicates
+# 输入：results/sort_sam/*.sorted.bam
+# 输出：results/mark_duplicates/*.dedup.bam
+```
+
+5. BAM文件索引：
+```bash
+gatk-snp-pipeline run --config config.yaml --step index_bam
+# 输入：results/mark_duplicates/*.dedup.bam
+# 输出：results/mark_duplicates/*.dedup.bam.bai
+```
+
+6. GATK HaplotypeCaller：
+```bash
+gatk-snp-pipeline run --config config.yaml --step haplotype_caller
+# 输入：results/mark_duplicates/*.dedup.bam
+# 输出：results/haplotype_caller/*.g.vcf.gz
+```
+
+7. 合并GVCF文件：
+```bash
+gatk-snp-pipeline run --config config.yaml --step combine_gvcfs
+# 输入：results/haplotype_caller/*.g.vcf.gz
+# 输出：results/combine_gvcfs/combined.g.vcf.gz
+```
+
+8. 基因型分型：
+```bash
+gatk-snp-pipeline run --config config.yaml --step genotype_gvcfs
+# 输入：results/combine_gvcfs/combined.g.vcf.gz
+# 输出：results/genotype_gvcfs/genotyped.vcf.gz
+```
+
+### 运行日志 / Running Logs
+
+每个步骤都会生成对应的日志文件，记录运行状态和错误信息：
+- ref_index.log
+- bwa_map.log
+- sort_sam.log
+- mark_duplicates.log
+- haplotype_caller.log
+- combine_gvcfs.log
+- genotype_gvcfs.log
 
 ## 常见问题 / FAQ
 
