@@ -11,6 +11,8 @@ import shutil
 import platform
 import subprocess
 import logging
+import zipfile
+import tarfile
 from pathlib import Path
 from typing import Dict, List, Any
 
@@ -24,6 +26,45 @@ logger = logging.getLogger(__name__)
 class BuildError(Exception):
     """构建过程中的自定义异常"""
     pass
+
+def compress_output(params: Dict[str, Any]) -> None:
+    """Compress the build output."""
+    dist_dir = Path('dist')
+    exe_path = dist_dir / params['name']
+
+    if not exe_path.exists():
+        logger.warning(f"Executable not found at {exe_path}. Skipping compression.")
+        return
+
+    system = platform.system().lower()
+
+    if system == 'linux':
+        archive_name = f"{params['name']}.tar.gz"
+        archive_path = dist_dir / archive_name
+        logger.info(f"Compressing {exe_path} to {archive_path}...")
+        try:
+            with tarfile.open(archive_path, "w:gz") as tar:
+                tar.add(exe_path, arcname=exe_path.name)
+            logger.info(f"Successfully created archive: {archive_path}")
+        except Exception as e:
+            logger.error(f"Failed to create tar.gz archive: {e}")
+            raise BuildError(f"Failed to create tar.gz archive: {e}")
+
+    elif system == 'windows':
+        archive_name = f"{params['name']}.zip"
+        archive_path = dist_dir / archive_name
+        logger.info(f"Compressing {exe_path} to {archive_path}...")
+        try:
+            with zipfile.ZipFile(archive_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
+                zipf.write(exe_path, arcname=exe_path.name)
+            logger.info(f"Successfully created archive: {archive_path}")
+        except Exception as e:
+            logger.error(f"Failed to create zip archive: {e}")
+            raise BuildError(f"Failed to create zip archive: {e}")
+
+    else:
+        logger.warning(f"Unsupported platform for compression: {system}. Skipping.")
+        return
 
 def setup_logging() -> None:
     """设置日志配置"""
@@ -218,6 +259,9 @@ def main() -> None:
         # 执行构建
         build_executable(params)
         
+        # 压缩输出
+        compress_output(params)
+
         logger.info("Build process completed successfully!")
         
     except BuildError as e:

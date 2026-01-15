@@ -237,6 +237,11 @@ def run_pipeline(args):
                         print(f.read())
                 
             print("流程执行成功")
+            if test_mode:
+                print("\nTest mode finished successfully.")
+                print("A complete test project was created in the 'test_data' directory.")
+                print("To run the pipeline again on this data, use the following command:")
+                print(f"  gatk-snp-pipeline run --config {args.config}")
         else:
             logger.error("流程执行失败")
             print("流程执行失败")
@@ -271,8 +276,8 @@ def main():
     # init 命令
     init_parser = subparsers.add_parser(
         "init",
-        help="初始化配置文件",
-        description="初始化一个新的配置文件"
+        help="Create a new default configuration file",
+        description="Creates a new default configuration file with all the required and optional parameters."
     )
     init_parser.add_argument(
         "--config",
