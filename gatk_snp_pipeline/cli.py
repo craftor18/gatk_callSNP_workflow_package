@@ -237,6 +237,11 @@ def run_pipeline(args):
                         print(f.read())
                 
             print("流程执行成功")
+            if test_mode:
+                print("\nTest mode finished successfully.")
+                print("A complete test project was created in the 'test_data' directory.")
+                print("To run the pipeline again on this data, use the following command:")
+                print(f"  gatk-snp-pipeline run --config {args.config}")
         else:
             logger.error("流程执行失败")
             print("流程执行失败")

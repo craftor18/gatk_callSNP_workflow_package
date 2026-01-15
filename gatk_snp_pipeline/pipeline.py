@@ -63,15 +63,10 @@ class Pipeline:
                 "command": self._get_ref_index_cmd,
                 "dependencies": ["bwa", "gatk", "samtools"]
             },
-            "bwa_map": {
-                "name": "BWA比对",
-                "command": self._get_bwa_map_cmd,
-                "dependencies": ["bwa"]
-            },
-            "sort_sam": {
-                "name": "排序SAM文件",
-                "command": self._get_sort_sam_cmd,
-                "dependencies": ["samtools"]
+            "bwa_map_and_sort": {
+                "name": "BWA比对和排序",
+                "command": self._get_bwa_map_and_sort_cmd,
+                "dependencies": ["bwa", "samtools"]
             },
             "mark_duplicates": {
                 "name": "标记重复序列",
@@ -258,15 +253,10 @@ class Pipeline:
         # 根据步骤名称检查相应的输入文件
         output_dir = self.config.get("output_dir", ".")
         
-        if step_name == "bwa_map":
+        if step_name == "bwa_map_and_sort":
             # 检查参考基因组索引
             ref = self.config.get("reference")
             return all(os.path.exists(f"{ref}{ext}") for ext in [".amb", ".ann", ".bwt", ".pac", ".sa"])
-            
-        elif step_name == "sort_sam":
-            # 检查SAM文件
-            sam_pattern = f"{output_dir}/*.sam"
-            return len(glob.glob(sam_pattern)) > 0
             
         elif step_name == "mark_duplicates":
             # 检查排序后的BAM文件
@@ -448,9 +438,10 @@ class Pipeline:
         
         return commands
     
-    def _get_bwa_map_cmd(self) -> List[str]:
-        """获取BWA比对命令"""
+    def _get_bwa_map_and_sort_cmd(self) -> List[str]:
+        """获取BWA比对和排序命令"""
         bwa = self.config.get_software_path("bwa")
+        samtools = self.config.get_software_path("samtools")
         ref = self.config.get("reference")
         if not ref:
             raise ValueError("配置文件中缺少 reference 字段")
@@ -464,47 +455,35 @@ class Pipeline:
             os.makedirs(output_dir, exist_ok=True)
             
         threads = str(self.config.get("threads", 8))
+        memory_per_thread = str(self.config.get("memory_per_thread", 2))
         
         # 获取测序类型，默认为双端测序
         sequencing_type = self.config.get("sequencing_type", "paired")
         
         if sequencing_type == "paired":
             # 双端测序数据
-            # 获取R1样本文件列表，处理通配符路径
             sample_pattern_r1 = f"{samples_dir}/*_R1*.fastq.gz"
             sample_files_r1 = glob.glob(sample_pattern_r1)
             
             if not sample_files_r1:
                 raise FileNotFoundError(f"未找到与模式 {sample_pattern_r1} 匹配的样本文件")
             
-            # 处理多个样本的情况
             cmds = []
             for sample_file_r1 in sample_files_r1:
-                # 根据R1文件推断R2文件
                 sample_file_r2 = sample_file_r1.replace("_R1", "_R2")
                 if not os.path.exists(sample_file_r2):
                     raise FileNotFoundError(f"未找到配对的R2文件：{sample_file_r2}")
                 
-                # 从R1文件名中提取样本名，去掉_R1部分
-                sample_name = os.path.basename(sample_file_r1).split('.')[0]
-                sample_name = sample_name.replace("_R1", "")
+                sample_name = os.path.basename(sample_file_r1).split('.')[0].replace("_R1", "")
+                output_bam = f"{output_dir}/{sample_name}.sorted.bam"
                 
-                output_sam = f"{output_dir}/{sample_name}.sam"
-                
-                # 添加读组信息，这对GATK至关重要
                 read_group = f"@RG\\tID:{sample_name}\\tSM:{sample_name}\\tPL:ILLUMINA\\tLB:{sample_name}_lib\\tPU:unit1"
                 
-                cmd = [
-                    bwa, "mem",
-                    "-t", threads,
-                    "-M",  # 添加-M参数，标记短分割比对
-                    "-R", f"'{read_group}'",  # 添加读组信息
-                    ref,
-                    sample_file_r1,
-                    sample_file_r2,
-                    ">", output_sam
-                ]
-                cmds.append(' '.join(cmd))
+                cmd = (
+                    f"{bwa} mem -t {threads} -M -R '{read_group}' {ref} {sample_file_r1} {sample_file_r2} | "
+                    f"{samtools} sort -@ {threads} -m {memory_per_thread}G -o {output_bam} -"
+                )
+                cmds.append(cmd)
         else:
             # 单端测序数据
             sample_pattern = f"{samples_dir}/*.fastq.gz"
@@ -513,62 +492,19 @@ class Pipeline:
             if not sample_files:
                 raise FileNotFoundError(f"未找到与模式 {sample_pattern} 匹配的样本文件")
             
-            # 处理多个样本的情况
             cmds = []
             for sample_file in sample_files:
                 sample_name = os.path.basename(sample_file).split('.')[0]
-                output_sam = f"{output_dir}/{sample_name}.sam"
+                output_bam = f"{output_dir}/{sample_name}.sorted.bam"
                 
-                # 添加读组信息，这对GATK至关重要
                 read_group = f"@RG\\tID:{sample_name}\\tSM:{sample_name}\\tPL:ILLUMINA\\tLB:{sample_name}_lib\\tPU:unit1"
                 
-                cmd = [
-                    bwa, "mem",
-                    "-t", threads,
-                    "-M",  # 添加-M参数，标记短分割比对
-                    "-R", f"'{read_group}'",  # 添加读组信息
-                    ref,
-                    sample_file,
-                    ">", output_sam
-                ]
-                cmds.append(' '.join(cmd))
+                cmd = (
+                    f"{bwa} mem -t {threads} -M -R '{read_group}' {ref} {sample_file} | "
+                    f"{samtools} sort -@ {threads} -m {memory_per_thread}G -o {output_bam} -"
+                )
+                cmds.append(cmd)
             
-        # 连接所有命令
-        return [' && '.join(cmds)]
-    
-    def _get_sort_sam_cmd(self) -> List[str]:
-        """获取排序SAM文件命令"""
-        samtools = self.config.get_software_path("samtools")
-        
-        output_dir = self.config.get("output_dir", ".")
-        if not os.path.exists(output_dir):
-            os.makedirs(output_dir, exist_ok=True)
-        
-        # 获取所有SAM文件
-        sam_pattern = f"{output_dir}/*.sam"
-        sam_files = glob.glob(sam_pattern)
-        
-        if not sam_files:
-            raise FileNotFoundError(f"未找到与模式 {sam_pattern} 匹配的SAM文件")
-        
-        # 处理多个SAM文件的情况
-        cmds = []
-        for sam_file in sam_files:
-            sample_name = os.path.basename(sam_file).split('.')[0]
-            output_bam = f"{output_dir}/{sample_name}.sorted.bam"
-            threads = str(self.config.get("threads", 8))
-            memory_per_thread = str(self.config.get("memory_per_thread", 2))
-            
-            cmd = [
-                samtools, "sort",
-                "-@", threads,
-                "-m", f"{memory_per_thread}G",  # 每个线程使用的内存
-                "-o", output_bam,
-                sam_file
-            ]
-            cmds.append(' '.join(cmd))
-        
-        # 连接所有命令
         return [' && '.join(cmds)]
     
     def _get_mark_duplicates_cmd(self) -> List[str]:
