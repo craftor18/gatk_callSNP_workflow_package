@@ -271,8 +271,8 @@ def main():
     # init 命令
     init_parser = subparsers.add_parser(
         "init",
-        help="初始化配置文件",
-        description="初始化一个新的配置文件"
+        help="Create a new default configuration file",
+        description="Creates a new default configuration file with all the required and optional parameters."
     )
     init_parser.add_argument(
         "--config",
